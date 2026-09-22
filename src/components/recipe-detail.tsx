@@ -310,7 +310,11 @@ export function RecipeDetail({ id }: { id: string }) {
                 )}
               </section>
             </div>
-            <AiRecipePanel key={meal.id} recipeId={meal.id} />
+            <AiRecipePanel
+  key={meal.id}
+  recipeId={meal.id}
+  recipeName={meal.name}
+  />
           </article>
         )
       )}

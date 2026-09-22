@@ -20,6 +20,7 @@ import { MealPhoto } from "./meal-photo";
 import { DeveloperMode } from "./developer-mode";
 import { AuthPanel } from "./auth-panel";
 import { SavedRecipesPanel } from "./saved-recipes-panel";
+import { AiRecipesPanel } from "./ai-recipes-panel";
 
 type SearchResult = {
   meals: MealSummary[];
@@ -34,6 +35,7 @@ export function SearchExperience() {
   const params = useSearchParams();
 
   const query = params.get("q")?.trim() ?? "";
+
   const mode: SearchMode =
     params.get("mode") === "name" ? "name" : "ingredient";
 
@@ -279,9 +281,7 @@ export function SearchExperience() {
                 type="radio"
                 name="mode"
                 value="ingredient"
-                checked={
-                  draftMode === "ingredient"
-                }
+                checked={draftMode === "ingredient"}
                 onChange={() => {
                   setDraftMode("ingredient");
                   setValidation("");
@@ -416,7 +416,10 @@ export function SearchExperience() {
       </section>
 
       {!query ? (
-        <SavedRecipesPanel />
+        <>
+          <SavedRecipesPanel />
+          <AiRecipesPanel />
+        </>
       ) : (
         <section
           className="results-section"
