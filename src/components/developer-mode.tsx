@@ -7,7 +7,7 @@ export function DeveloperMode({ operation }: { operation?: ApiOperation }) {
     <details className="developer-mode">
       <summary>Developer Mode <span>API užklausos informacija</span></summary>
       {operation ? <>
-        <p>Paskutinė šio vaizdo užklausa į receptų API. Grįžus išsaugoti rezultatai naujos užklausos neatlieka.</p>
+        <p>Paskutinė šios skilties API operacija. Statusas nurodo išorinės paslaugos atsakymą; jei užklausa neišsiųsta, statuso nėra.</p>
         <dl>
           <div><dt>Sistema</dt><dd>{operation.system}</dd></div>
           <div><dt>Endpoint</dt><dd>{operation.endpoint}</dd></div>

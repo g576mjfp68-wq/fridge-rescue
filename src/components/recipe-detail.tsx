@@ -13,6 +13,7 @@ import { searchPath, type ApiOperation, type Meal } from "@/lib/types";
 import { DeveloperMode } from "./developer-mode";
 import { ArrowIcon } from "./icons";
 import { MealPhoto } from "./meal-photo";
+import { AiRecipePanel } from "./ai-recipe-panel";
 
 export function RecipeDetail({ id }: { id: string }) {
   const params = useSearchParams();
@@ -309,6 +310,7 @@ export function RecipeDetail({ id }: { id: string }) {
                 )}
               </section>
             </div>
+            <AiRecipePanel key={meal.id} recipeId={meal.id} />
           </article>
         )
       )}

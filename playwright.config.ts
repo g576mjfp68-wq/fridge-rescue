@@ -8,7 +8,7 @@ export default defineConfig({
   expect: { timeout: 20_000 },
   reporter: "list",
   use: {
-    baseURL: process.env.TEST_BASE_URL || "http://127.0.0.1:3000",
+    baseURL: process.env.TEST_BASE_URL || "http://localhost:3005",
     channel: process.env.PLAYWRIGHT_CHANNEL || "chrome",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
