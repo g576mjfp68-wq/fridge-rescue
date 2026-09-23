@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, type MouseEvent } from "react";
-import { searchPath } from "@/lib/types";
 import { openKitchen, showNotice, useUi } from "@/lib/ui-store";
 import { AccountMenu } from "./account-menu";
 import { BookIcon, LogoMark, PotIcon, SearchIcon, SparkIcon } from "./icons";
@@ -14,9 +13,8 @@ const LAST_SEARCH = "fridge-rescue:last-search:v2";
 function lastSearchPath(): string {
   try {
     const cached = JSON.parse(sessionStorage.getItem(LAST_SEARCH) || "null");
-    const [mode, ...rest] = String(cached?.key ?? "").split(":");
-    const query = rest.join(":");
-    if ((mode === "ingredient" || mode === "name") && query) return searchPath(mode, query);
+    // Only our own search paths (query and filters included).
+    if (typeof cached?.path === "string" && cached.path.startsWith("/?")) return cached.path;
   } catch {
     // Without storage the plain search page is fine.
   }

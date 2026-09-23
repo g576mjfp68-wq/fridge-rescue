@@ -174,8 +174,8 @@ test("Mano virtuvė: keli produktai per kablelį, atskiri įrašai, pašalinamas
 
 test("Mano virtuvė pasiekiama po paieškos, paieška ir rezultatai išlieka", async ({ browser }) => {
   const page = await signIn(browser, A, false);
-  await page.getByLabel("Kokius produktus turi?").fill("jautiena, svogūnai");
-  await page.getByLabel("Kokius produktus turi?").press("Enter");
+  await page.getByLabel("Pagal kokius ingredientus ieškosime?").fill("jautiena, svogūnai");
+  await page.getByLabel("Pagal kokius ingredientus ieškosime?").press("Enter");
   await expect(page.locator(".recipe-card").first()).toBeVisible();
   const cards = await page.locator(".recipe-card").count();
   const address = page.url();
@@ -189,8 +189,66 @@ test("Mano virtuvė pasiekiama po paieškos, paieška ir rezultatai išlieka", a
 
   await page.getByRole("button", { name: "Uždaryti Mano virtuvę" }).click();
   expect(page.url()).toBe(address);
-  await expect(page.getByLabel("Kokius produktus turi?")).toHaveValue("jautiena, svogūnai");
+  await expect(page.getByLabel("Pagal kokius ingredientus ieškosime?")).toHaveValue("jautiena, svogūnai");
   await expect(page.locator(".recipe-card")).toHaveCount(cards);
+});
+
+test("Mano virtuvė: paieška pagal pasirinktus produktus (iki 5), filtrai išvalomi", async ({ browser }) => {
+  const owner = await token(A);
+  await rest(`kitchen_items?user_id=eq.${owner.id}`, owner.access, { method: "DELETE" });
+  for (const name of ["vištiena", "bulvės", "sūris", "morkos", "svogūnai", "pienas"]) {
+    expect((await rest("kitchen_items", owner.access, { method: "POST", body: JSON.stringify({ user_id: owner.id, name }) })).status).toBe(201);
+  }
+  const page = await signIn(browser, A, false);
+  // Start from a filtered name search: the kitchen search must not inherit it.
+  await page.goto("/?mode=name&q=pie&c=Dessert");
+  await expect(page.locator(".recipe-card").first()).toBeVisible();
+  const drawer = await openKitchen(page);
+  await expect(drawer.getByRole("heading", { name: "Tavo išsaugotas produktų sąrašas" })).toBeVisible();
+  const list = drawer.getByRole("list", { name: "Mano produktai" });
+  for (const name of ["vištiena", "bulvės", "sūris", "morkos", "svogūnai"]) await list.getByRole("checkbox", { name }).check();
+  await expect(list.getByRole("checkbox", { name: "pienas" })).toBeDisabled();
+  await expect(drawer.getByText("Pasirinkta 5 iš 5")).toBeVisible();
+  for (const name of ["sūris", "morkos", "svogūnai"]) await list.getByRole("checkbox", { name }).uncheck();
+
+  await drawer.getByRole("button", { name: "Ieškoti pagal pasirinktus produktus (2)" }).click();
+  await expect(page.getByRole("dialog", { name: "Mano virtuvė" })).toHaveCount(0);
+  await expect(page).toHaveURL(/mode=ingredient/);
+  expect(new URL(page.url()).searchParams.get("q")).toBe("vištiena, bulvės");
+  expect(new URL(page.url()).searchParams.has("c")).toBe(false);
+  await expect(page.getByRole("combobox", { name: "Kategorija" })).toHaveValue("");
+  await expect(page.getByLabel("Pagal kokius ingredientus ieškosime?")).toHaveValue("vištiena, bulvės");
+  await expect(page.locator(".recipe-card").first()).toBeVisible();
+  // The search field did not add anything to the kitchen.
+  expect(await (await rest("kitchen_items?select=id", owner.access)).json()).toHaveLength(6);
+});
+
+test("Mano AI receptai: ryškus peržiūros veiksmas, šalinimas tik patvirtinus", async ({ browser }) => {
+  // The AI text here is test data inserted with the user's own token – no Gemini call.
+  const owner = await token(A);
+  const inserted = await rest("ai_recipes", owner.access, { method: "POST", body: JSON.stringify({
+    user_id: owner.id, original_recipe_id: "52940", original_recipe_name: "Brown Stew Chicken", user_request: "Testinis prašymas",
+    ai_result: "Testinis AI rezultatas", time_minutes: 30, servings: 2, preference: "simpler",
+  }) });
+  expect(inserted.status).toBe(201);
+  const [row] = await inserted.json();
+
+  const page = await signIn(browser, A, false);
+  await page.goto("/mano-ai-receptai");
+  const card = page.getByRole("article", { name: "Brown Stew Chicken" });
+  await expect(card.getByRole("link", { name: "Peržiūrėti receptą" })).toHaveClass(/btn-primary/);
+  await card.getByRole("button", { name: "Pašalinti" }).click();
+  const confirm = card.getByRole("group", { name: "Patvirtinkite šalinimą" });
+  await expect(confirm).toContainText("Šio veiksmo atšaukti negalėsi");
+  await expect(confirm.getByRole("button", { name: "Atšaukti" })).toBeFocused();
+  await confirm.getByRole("button", { name: "Atšaukti" }).click();
+  await expect(confirm).toHaveCount(0);
+  expect(await (await rest(`ai_recipes?select=id&id=eq.${row.id}`, owner.access)).json()).toHaveLength(1);
+
+  await card.getByRole("button", { name: "Pašalinti" }).click();
+  await card.getByRole("button", { name: "Taip, pašalinti" }).click();
+  await expect(card).toHaveCount(0);
+  expect(await (await rest(`ai_recipes?select=id&id=eq.${row.id}`, owner.access)).json()).toEqual([]);
 });
 
 test("Tikras Gemini: AI naudoja Mano virtuvę ir rezultatą galima išsaugoti", async ({ browser }) => {

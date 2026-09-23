@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { addKitchenItems, getKitchenItems, removeKitchenItem, type KitchenItem } from "@/lib/kitchen";
-import { MAX_PRODUCT_LENGTH, MAX_PRODUCTS, splitProducts, translateProduct } from "@/lib/ingredients-lt";
+import { MAX_PRODUCT_LENGTH, MAX_PRODUCTS, splitProducts } from "@/lib/ingredients-lt";
 import { useAiUser } from "@/lib/supabase/use-ai-user";
 import { searchPath } from "@/lib/types";
 import { openAuth } from "@/lib/ui-store";
@@ -20,7 +20,11 @@ export function KitchenPanel({ titleId, onSearch }: { titleId?: string; onSearch
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const pending = useRef(false);
+  const router = useRouter();
+  // Products picked for "Ieškoti pagal pasirinktus produktus" (item IDs, max 5).
+  const [picked, setPicked] = useState<string[]>([]);
   const items = userId && owned.userId === userId ? owned.items : [];
+  const selected = items.filter((item) => picked.includes(item.id));
   const loading = Boolean(userId) && loadedFor !== userId && !error;
 
   useEffect(() => {
@@ -77,6 +81,7 @@ export function KitchenPanel({ titleId, onSearch }: { titleId?: string; onSearch
     setNotice("");
     try {
       await removeKitchenItem(item.id, userId);
+      setPicked((current) => current.filter((id) => id !== item.id));
       setOwned((current) => ({ ...current, items: current.items.filter((entry) => entry.id !== item.id) }));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Produkto pašalinti nepavyko.");
@@ -86,7 +91,18 @@ export function KitchenPanel({ titleId, onSearch }: { titleId?: string; onSearch
     }
   }
 
-  const searchable = items.filter((item) => translateProduct(item.name) || /^[a-z][a-z '-]*$/i.test(item.name)).slice(0, MAX_PRODUCTS);
+  function togglePick(item: KitchenItem) {
+    setPicked((current) => current.includes(item.id)
+      ? current.filter((id) => id !== item.id)
+      : current.length < MAX_PRODUCTS ? [...current, item.id] : current);
+  }
+
+  /** Ingredient search with only the picked products; category/area filters are cleared. */
+  function searchPicked() {
+    if (!selected.length) return;
+    onSearch?.();
+    router.push(searchPath("ingredient", selected.map((item) => item.name).join(", ")));
+  }
 
   return (
     <section className="kitchen-section" aria-labelledby={id}>
@@ -95,7 +111,7 @@ export function KitchenPanel({ titleId, onSearch }: { titleId?: string; onSearch
         <h2 id={id}>Mano virtuvė</h2>
         <span>{userId ? `${items.length} produktų` : "Tavo turimi produktai"}</span>
       </div>
-      <p className="kitchen-intro">Ką turi namie? Produktai išsaugomi tavo paskyroje – paieška ir rezultatai lieka vietoje.</p>
+      <p className="kitchen-intro">Ką turi namie? Produktai išsaugomi tavo paskyroje. Paieškos laukelis virtuvės nepildo – receptų ieškok pasirinkęs produktus žemiau.</p>
 
       {userLoading ? (
         <p role="status">Tikrinama prisijungimo būsena…</p>
@@ -135,19 +151,34 @@ export function KitchenPanel({ titleId, onSearch }: { titleId?: string; onSearch
             <p className="kitchen-empty">Virtuvė tuščia. Pridėk produktus, pvz., kiaušiniai, ryžiai, pomidorai, sūris.</p>
           ) : (
             <>
+              <div className="kitchen-list-head">
+                <h3 id={`${id}-list`}>Tavo išsaugotas produktų sąrašas</h3>
+                <span aria-live="polite">Pasirinkta {selected.length} iš {MAX_PRODUCTS}</span>
+              </div>
+              <p className="kitchen-hint">Pažymėk iki {MAX_PRODUCTS} produktų, pagal kuriuos ieškosime receptų.</p>
               <ul className="kitchen-list" aria-label="Mano produktai">
-                {items.map((item) => (
-                  <li key={item.id}>
-                    <span>{item.name}</span>
-                    <button type="button" onClick={() => remove(item)} disabled={busy} aria-label={`Pašalinti ${item.name}`}>×</button>
-                  </li>
-                ))}
+                {items.map((item) => {
+                  const isPicked = picked.includes(item.id);
+                  return (
+                    <li key={item.id} className={isPicked ? "is-picked" : ""}>
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={isPicked}
+                          disabled={!isPicked && selected.length >= MAX_PRODUCTS}
+                          onChange={() => togglePick(item)}
+                        />
+                        <span>{item.name}</span>
+                      </label>
+                      <button type="button" onClick={() => remove(item)} disabled={busy} aria-label={`Pašalinti ${item.name}`}>×</button>
+                    </li>
+                  );
+                })}
               </ul>
-              {searchable.length > 0 && (
-                <Link className="btn btn-terra btn-block kitchen-search" onClick={onSearch} href={searchPath("ingredient", searchable.map((item) => item.name).join(", "))}>
-                  Ieškoti receptų iš virtuvės ({searchable.length}) →
-                </Link>
-              )}
+              <button type="button" className="btn btn-terra btn-block kitchen-search" onClick={searchPicked} disabled={!selected.length}>
+                Ieškoti pagal pasirinktus produktus{selected.length ? ` (${selected.length})` : ""} →
+              </button>
+              <p className="kitchen-hint">Kategorijos ir pasaulio virtuvės filtrai bus išvalyti.</p>
             </>
           )}
         </>

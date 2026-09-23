@@ -50,6 +50,15 @@ export type SearchData = {
   products: ProductMatch[];
 };
 
-export function searchPath(mode: SearchMode, query: string) {
-  return `/?${new URLSearchParams({ mode, q: query })}`;
+/** Strict filters: original TheMealDB values (category "Seafood", area "Italian"). */
+export type SearchFilters = { category?: string; area?: string };
+
+export type FilterOption = { value: string; label: string };
+export type FilterOptions = { categories: FilterOption[]; areas: FilterOption[] };
+
+export function searchPath(mode: SearchMode, query: string, filters: SearchFilters = {}) {
+  const params = new URLSearchParams({ mode, q: query });
+  if (filters.category) params.set("c", filters.category);
+  if (filters.area) params.set("a", filters.area);
+  return `/?${params}`;
 }

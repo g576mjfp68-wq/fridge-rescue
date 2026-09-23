@@ -18,11 +18,15 @@ import { AiRecipePanel } from "./ai-recipe-panel";
 export function RecipeDetail({ id }: { id: string }) {
   const params = useSearchParams();
   const query = params.get("q") ?? "";
+  const category = params.get("c") ?? "";
+  const area = params.get("a") ?? "";
 
-  const back = query
+  // Back to the same search with the same filters.
+  const back = query || category || area
     ? searchPath(
         params.get("mode") === "name" ? "name" : "ingredient",
         query,
+        { category, area },
       )
     : "/";
 

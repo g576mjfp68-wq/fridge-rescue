@@ -14,15 +14,19 @@ import { recordOperations } from "@/lib/dev-mode";
 import { MAX_PRODUCT_LENGTH, MAX_PRODUCTS, splitProducts } from "@/lib/ingredients-lt";
 import {
   searchPath,
+  type FilterOption,
+  type MealSummary,
   type ProductMatch,
   type SearchData,
+  type SearchFilters,
   type SearchMeal,
   type SearchMode,
 } from "@/lib/types";
+import { useFilterOptions } from "@/lib/use-filter-options";
 import { getSavedRecipes, removeSavedRecipe, saveRecipe } from "@/lib/saved-recipes";
 import { useAiUser } from "@/lib/supabase/use-ai-user";
-import { openAuth, openKitchen } from "@/lib/ui-store";
-import { ArrowIcon, HeartIcon, PotIcon, SearchIcon } from "./icons";
+import { openAuth } from "@/lib/ui-store";
+import { ArrowIcon, DiceIcon, HeartIcon, SearchIcon } from "./icons";
 import { MealPhoto } from "./meal-photo";
 
 type SearchResult = {
@@ -44,10 +48,20 @@ export function SearchExperience() {
   const mode: SearchMode =
     params.get("mode") === "name" ? "name" : "ingredient";
 
-  const key = `${mode}:${query}`;
+  // Strict filters in the URL, so they survive going to a recipe and back.
+  const category = params.get("c")?.trim() ?? "";
+  const area = params.get("a")?.trim() ?? "";
+  const hasSearch = Boolean(query || category || area);
+  const key = `${mode}:${query}|${category}|${area}`;
 
   const [draft, setDraft] = useState(query);
   const [draftMode, setDraftMode] = useState<SearchMode>(mode);
+  const [draftCategory, setDraftCategory] = useState(category);
+  const [draftArea, setDraftArea] = useState(area);
+  const filterOptions = useFilterOptions();
+  const [surprising, setSurprising] = useState(false);
+  const [surpriseError, setSurpriseError] = useState("");
+  const surprisePending = useRef(false);
   const [result, setResult] = useState<SearchResult>({
     meals: [],
   });
@@ -112,9 +126,11 @@ export function SearchExperience() {
     async function load() {
       setDraft(query);
       setDraftMode(mode);
+      setDraftCategory(category);
+      setDraftArea(area);
       setValidation("");
 
-      if (!query) {
+      if (!hasSearch) {
         pending.current = false;
         setLoading(false);
         setResult({ meals: [] });
@@ -158,6 +174,8 @@ export function SearchExperience() {
           `/api/recipes?${new URLSearchParams({
             mode,
             q: query,
+            ...(category ? { c: category } : {}),
+            ...(area ? { a: area } : {}),
           })}`,
           controller.signal,
         );
@@ -174,6 +192,8 @@ export function SearchExperience() {
             CACHE_KEY,
             JSON.stringify({
               key,
+              // The header's "Paieška" link returns to this exact search.
+              path: searchPath(mode, query, { category, area }),
               meals,
               match,
               products,
@@ -205,21 +225,23 @@ export function SearchExperience() {
     void load();
 
     return () => controller.abort();
-  }, [query, mode, key, retry]);
+  }, [query, mode, key, retry, hasSearch, category, area]);
 
   function startSearch(
     value = draft,
     selectedMode = draftMode,
+    filters: SearchFilters = { category: draftCategory, area: draftArea },
   ) {
     if (pending.current) return;
 
     const trimmed = value.trim();
+    const hasFilter = Boolean(filters.category || filters.area);
 
-    if (!trimmed) {
+    if (!trimmed && !hasFilter) {
       setValidation(
         selectedMode === "ingredient"
-          ? "Įveskite bent vieną produktą, pavyzdžiui, vištiena."
-          : "Įveskite patiekalo pavadinimą angliškai.",
+          ? "Įvesk bent vieną ingredientą, pvz., vištiena, arba pasirink kategoriją ar pasaulio virtuvę."
+          : "Įvesk patiekalo pavadinimą angliškai arba pasirink kategoriją ar pasaulio virtuvę.",
       );
       input.current?.focus();
       return;
@@ -228,7 +250,7 @@ export function SearchExperience() {
     const products = splitProducts(trimmed);
     if (
       trimmed.length > 100 ||
-      (selectedMode === "ingredient" &&
+      (selectedMode === "ingredient" && trimmed &&
         (products.length === 0 ||
           products.length > MAX_PRODUCTS ||
           products.some((product) => product.length > MAX_PRODUCT_LENGTH)))
@@ -248,20 +270,58 @@ export function SearchExperience() {
     setLoading(true);
     setDraft(trimmed);
     setDraftMode(selectedMode);
+    setDraftCategory(filters.category ?? "");
+    setDraftArea(filters.area ?? "");
 
     if (
       trimmed === query &&
-      selectedMode === mode
+      selectedMode === mode &&
+      (filters.category ?? "") === category &&
+      (filters.area ?? "") === area
     ) {
       skipCache.current = true;
       setRetry((value) => value + 1);
     } else {
       router.push(
-        searchPath(selectedMode, trimmed),
+        searchPath(selectedMode, trimmed, filters),
         { scroll: false },
       );
     }
   }
+
+  function clearFilters() {
+    setDraftCategory("");
+    setDraftArea("");
+    setValidation("");
+    if (!category && !area) return;
+    // The shown results were filtered: search again without filters.
+    if (draft.trim()) startSearch(draft, draftMode, {});
+    else router.push("/", { scroll: false });
+  }
+
+  /** One random recipe from the whole collection; filters do not apply. */
+  async function surprise() {
+    if (surprisePending.current) return;
+    surprisePending.current = true;
+    setSurprising(true);
+    setSurpriseError("");
+    try {
+      const response = await fetchApi<MealSummary>("/api/recipes/random", new AbortController().signal);
+      recordOperations([response.operation]);
+      router.push(`/receptai/${response.data!.id}`);
+    } catch (error) {
+      if (error instanceof ClientApiError) recordOperations([error.operation]);
+      setSurpriseError(error instanceof Error ? error.message : "Atsitiktinio recepto gauti nepavyko.");
+      surprisePending.current = false;
+      setSurprising(false);
+    }
+  }
+
+  const labelOf = (list: FilterOption[] | undefined, value: string) => list?.find((item) => item.value === value)?.label ?? value;
+  const activeFilters = [
+    category && labelOf(filterOptions.options?.categories, category),
+    area && `${labelOf(filterOptions.options?.areas, area)} virtuvė`,
+  ].filter(Boolean).join(" · ");
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -273,7 +333,7 @@ export function SearchExperience() {
 
   return (
     <>
-      <section className={`hero ${query ? "hero--searched" : ""}`} aria-labelledby="hero-heading">
+      <section className={`hero ${hasSearch ? "hero--searched" : ""}`} aria-labelledby="hero-heading">
         <div className="hero-main">
           <p className="eyebrow">Rudens virtuvė</p>
           <h1 id="hero-heading">
@@ -295,7 +355,7 @@ export function SearchExperience() {
                     checked={draftMode === "ingredient"}
                     onChange={() => { setDraftMode("ingredient"); setValidation(""); }}
                   />
-                  <span>Pagal produktus</span>
+                  <span>Pagal ingredientus</span>
                 </label>
                 <label>
                   <input
@@ -310,7 +370,7 @@ export function SearchExperience() {
               </fieldset>
 
               <label className="input-label" htmlFor="recipe-query">
-                {draftMode === "ingredient" ? "Kokius produktus turi?" : "Kokio patiekalo ieškai?"}
+                {draftMode === "ingredient" ? "Pagal kokius ingredientus ieškosime?" : "Kokio patiekalo ieškai?"}
               </label>
 
               <div className={`search-row ${validation ? "has-error" : ""}`}>
@@ -336,6 +396,33 @@ export function SearchExperience() {
                 </button>
               </div>
 
+              <fieldset className="filters" disabled={loading}>
+                <legend className="sr-only">Filtrai</legend>
+                <label>
+                  <span className="sr-only">Kategorija</span>
+                  <select value={draftCategory} onChange={(event) => { setDraftCategory(event.target.value); setValidation(""); }} disabled={!filterOptions.options}>
+                    <option value="">Visos kategorijos</option>
+                    {filterOptions.options?.categories.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span className="sr-only">Pasaulio virtuvė</span>
+                  <select value={draftArea} onChange={(event) => { setDraftArea(event.target.value); setValidation(""); }} disabled={!filterOptions.options}>
+                    <option value="">Visos pasaulio virtuvės</option>
+                    {filterOptions.options?.areas.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                  </select>
+                </label>
+                {(draftCategory || draftArea || category || area) && (
+                  <button type="button" className="link-button" onClick={clearFilters}>Išvalyti filtrus</button>
+                )}
+                {filterOptions.loading && <span className="filters-note" role="status">Kraunami filtrai…</span>}
+                {filterOptions.error && (
+                  <span className="filters-note" role="status">
+                    {filterOptions.error} <button type="button" className="link-button" onClick={filterOptions.retry}>Bandyti dar kartą</button>
+                  </span>
+                )}
+              </fieldset>
+
               <p className="search-hint" id="search-hint">
                 {draftMode === "ingredient" ? (
                   <>
@@ -354,26 +441,33 @@ export function SearchExperience() {
               <div className="examples">
                 <span>Išbandyk:</span>
                 {EXAMPLES.map((example) => (
-                  <button key={example} type="button" disabled={loading} onClick={() => startSearch(example, "ingredient")}>
+                  <button key={example} type="button" disabled={loading} onClick={() => startSearch(example, "ingredient", {})}>
                     {example}
                   </button>
                 ))}
               </div>
             </form>
           </section>
+
         </div>
 
-        <div className="hero-photo">
-          <Image src="/hero.jpg" alt="Moliūgai ir hurmos ant medinės pjaustymo lentelės" fill priority sizes="(max-width: 900px) 100vw, 40vw" />
-          <button type="button" className="kitchen-pill" onClick={openKitchen} aria-haspopup="dialog">
-            <PotIcon />
-            <span><strong>Mano virtuvė</strong> · produktai, kuriuos turi</span>
-            <span className="kitchen-pill-action">Atidaryti</span>
-          </button>
+        <div className="hero-side">
+          <div className="hero-photo">
+            <Image src="/hero.jpg" alt="Moliūgai ir hurmos ant medinės pjaustymo lentelės" fill priority sizes="(max-width: 900px) 100vw, 40vw" />
+          </div>
+
+            <div className="surprise-row">
+              <button type="button" className="btn btn-ghost" onClick={surprise} disabled={surprising} aria-describedby="surprise-note">
+                {surprising ? <span className="spinner" aria-hidden="true" /> : <DiceIcon />}
+                {surprising ? "Ieškoma atsitiktinio recepto…" : "Nustebink mane"}
+              </button>
+              <p id="surprise-note">Atsitiktinis receptas iš visos TheMealDB kolekcijos – filtrai jam netaikomi.</p>
+            </div>
+            {surpriseError && <p className="message message--error" role="alert">{surpriseError}</p>}
         </div>
       </section>
 
-      {!query ? (
+      {!hasSearch ? (
         <section className="how-it-works" aria-label="Kaip tai veikia">
           <ol>
             <li><b>1</b> Įvesk kelis produktus lietuviškai</li>
@@ -387,7 +481,7 @@ export function SearchExperience() {
             <h2 id="results-heading">Tavo atradimai</h2>
             <span>
               {!loading && !result.error
-                ? `${result.meals.length} receptų${showMatch ? " · rūšiuota pagal atitikimą" : ""}`
+                ? `${recipesLabel(result.meals.length)}${showMatch ? " · rūšiuota pagal atitikimą" : ""}`
                 : "Įkvėpimas iš TheMealDB"}
             </span>
           </div>
@@ -416,17 +510,24 @@ export function SearchExperience() {
                 <div className="state-icon"><SearchIcon /></div>
                 <h3>Receptų nerasta</h3>
                 <p>
-                  Pagal „{query}“ nieko neradome.
-                  {mode === "ingredient"
-                    ? " Patikrink produktų rašybą arba išbandyk kitus produktus."
-                    : " Patikrink anglišką rašybą arba išbandyk kitą pavadinimą."}
+                  {query ? <>Pagal „{query}“</> : "Pagal pasirinktus filtrus"}
+                  {activeFilters && query ? <> su filtrais „{activeFilters}“</> : activeFilters ? <> „{activeFilters}“</> : null} nieko neradome.
+                  {category || area
+                    ? " Kategorija ir pasaulio virtuvė yra griežti filtrai – pabandyk juos išvalyti."
+                    : mode === "ingredient"
+                      ? " Patikrink produktų rašybą arba išbandyk kitus produktus."
+                      : " Patikrink anglišką rašybą arba išbandyk kitą pavadinimą."}
                 </p>
+                {(category || area) && (
+                  <button type="button" className="btn btn-ghost" onClick={clearFilters}>Išvalyti filtrus</button>
+                )}
               </div>
             </>
           ) : (
             <>
               <p className="results-caption">
-                {mode === "ingredient" ? "Produktai" : "Pavadinimas"}: <strong>{query}</strong>
+                {query && <>{mode === "ingredient" ? "Ingredientai" : "Pavadinimas"}: <strong>{query}</strong></>}
+                {activeFilters && <>{query && " · "}Filtrai: <strong>{activeFilters}</strong></>}
               </p>
 
               <ProductSummary products={result.products} />
@@ -451,7 +552,7 @@ export function SearchExperience() {
                     <article className="recipe-tile" key={meal.id}>
                       <Link
                         className="recipe-card"
-                        href={`/receptai/${meal.id}?${new URLSearchParams({ mode, q: query })}`}
+                        href={`/receptai/${meal.id}?${new URLSearchParams({ mode, q: query, ...(category ? { c: category } : {}), ...(area ? { a: area } : {}) })}`}
                         prefetch={false}
                       >
                         <div className="card-photo">
@@ -499,6 +600,15 @@ export function SearchExperience() {
       )}
     </>
   );
+}
+
+/** Lithuanian plural: 1 receptas, 2 receptai, 10 receptų, 21 receptas. */
+function recipesLabel(count: number) {
+  const last = count % 10;
+  const lastTwo = count % 100;
+  if (last === 1 && lastTwo !== 11) return `${count} receptas`;
+  if (last >= 2 && (lastTwo < 12 || lastTwo > 19)) return `${count} receptai`;
+  return `${count} receptų`;
 }
 
 function ProductSummary({ products }: { products?: ProductMatch[] }) {

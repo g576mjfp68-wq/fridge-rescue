@@ -5,12 +5,12 @@ test("Tuščia įvestis, klaviatūra ir pradinis vaizdas", async ({ page }, test
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Ką gaminsi iš to, ką jau turi?");
   await page.getByRole("button", { name: "Ieškoti receptų" }).click();
-  await expect(page.getByRole("main").getByRole("alert")).toContainText("Įveskite bent vieną produktą");
-  await expect(page.getByLabel("Kokius produktus turi?")).toBeFocused();
-  await page.getByLabel("Kokius produktus turi?").fill("a, b, c, d, e, f");
-  await page.getByLabel("Kokius produktus turi?").press("Enter");
+  await expect(page.getByRole("main").getByRole("alert")).toContainText("Įvesk bent vieną ingredientą");
+  await expect(page.getByLabel("Pagal kokius ingredientus ieškosime?")).toBeFocused();
+  await page.getByLabel("Pagal kokius ingredientus ieškosime?").fill("a, b, c, d, e, f");
+  await page.getByLabel("Pagal kokius ingredientus ieškosime?").press("Enter");
   await expect(page.getByRole("main").getByRole("alert")).toContainText("iki 5 produktų");
-  await page.getByLabel("Kokius produktus turi?").fill("");
+  await page.getByLabel("Pagal kokius ingredientus ieškosime?").fill("");
   await expect(page.locator("html")).toHaveAttribute("lang", "lt");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("home.png"), fullPage: true });
@@ -25,8 +25,8 @@ for (const ingredient of ["chicken", "beef", "tomato"]) {
     });
     await page.goto("/");
     const responsePromise = page.waitForResponse((response) => response.url().includes("/api/recipes?") && response.url().includes(`q=${ingredient}`));
-    await page.getByLabel("Kokius produktus turi?").fill(ingredient);
-    await page.getByLabel("Kokius produktus turi?").press("Enter");
+    await page.getByLabel("Pagal kokius ingredientus ieškosime?").fill(ingredient);
+    await page.getByLabel("Pagal kokius ingredientus ieškosime?").press("Enter");
     const response = await responsePromise;
     expect(response.status()).toBe(200);
     const payload: ApiResponse<SearchData> = await response.json();
@@ -151,7 +151,7 @@ test("Krovimas blokuoja pakartojimus; senas atsakymas neperrašo naujo", async (
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(query === "chicken" ? chicken : beef) });
   });
   await page.goto("/");
-  await page.getByLabel("Kokius produktus turi?").fill("chicken");
+  await page.getByLabel("Pagal kokius ingredientus ieškosime?").fill("chicken");
   await page.getByRole("region", { name: "Receptų paieška" }).locator("form").evaluate((form) => { (form as HTMLFormElement).requestSubmit(); (form as HTMLFormElement).requestSubmit(); });
   await expect(page.getByRole("button", { name: "Ieškoma…" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "vištiena", exact: true })).toBeDisabled();
@@ -162,7 +162,7 @@ test("Krovimas blokuoja pakartojimus; senas atsakymas neperrašo naujo", async (
   release();
   await oldResponse;
   await page.waitForTimeout(150);
-  await expect(page.getByLabel("Kokius produktus turi?")).toHaveValue("beef");
+  await expect(page.getByLabel("Pagal kokius ingredientus ieškosime?")).toHaveValue("beef");
   await expect(page.locator(".recipe-card")).toHaveCount(beef.data.meals.length);
   await expect(page.locator(".recipe-card").first()).toContainText(beef.data.meals[0].name);
 });

@@ -42,7 +42,7 @@ export function expandMeal(meal: RawMeal): Meal {
 }
 
 export async function queryMeals<T>(
-  endpoint: "filter.php" | "search.php" | "lookup.php",
+  endpoint: "filter.php" | "search.php" | "lookup.php" | "list.php" | "random.php",
   params: Record<string, string>,
   transform: (meals: RawMeal[]) => T,
 ): Promise<{ data: T; operation: ApiOperation }> {

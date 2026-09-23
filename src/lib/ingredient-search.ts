@@ -9,7 +9,11 @@ const MAX_PARTIAL_RESULTS = 60;
  * TheMealDB's free key does not support filter.php?i=a,b (it returns null),
  * so each ingredient is requested separately and recipes are compared by ID.
  */
-export async function searchByProducts(products: string[]): Promise<{ data: SearchData; operations: ApiOperation[] }> {
+export async function searchByProducts(
+  products: string[],
+  /** Recipe IDs allowed by the strict category/area filters; null = no filter. */
+  allowed: Set<string> | null = null,
+): Promise<{ data: SearchData; operations: ApiOperation[] }> {
   const plans = products.map((input) => {
     const translated = translateProduct(input);
     if (translated) return { input, ingredients: translated, source: "dictionary" as const };
@@ -47,6 +51,8 @@ export async function searchByProducts(products: string[]): Promise<{ data: Sear
   const byId = new Map<string, SearchMeal & { matched: string[] }>();
   for (const { plan, meals } of recognized) {
     for (const meal of meals.values()) {
+      // Filters are strict: even partial matches must be in the category/area.
+      if (allowed && !allowed.has(meal.id)) continue;
       const entry = byId.get(meal.id) ?? { ...meal, matched: [] };
       entry.matched.push(plan.input);
       byId.set(meal.id, entry);

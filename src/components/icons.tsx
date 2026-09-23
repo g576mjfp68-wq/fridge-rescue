@@ -50,3 +50,7 @@ export function LogoutIcon(props: SVGProps<SVGSVGElement>) {
 export function HeartIcon({ filled, ...props }: SVGProps<SVGSVGElement> & { filled?: boolean }) {
   return <svg viewBox="0 0 24 24" {...line} fill={filled ? "currentColor" : "none"} {...props}><path d="M12 20s-7-4.4-9-8.6C1.6 8.3 3.5 5 6.8 5c2 0 3.3 1.1 4.2 2.4C11.9 6.1 13.2 5 15.2 5c3.3 0 5.2 3.3 3.8 6.4C19 15.6 12 20 12 20z" /></svg>;
 }
+
+export function DiceIcon(props: SVGProps<SVGSVGElement>) {
+  return <svg viewBox="0 0 24 24" {...line} {...props}><rect x="3.5" y="3.5" width="17" height="17" rx="3.5" /><circle cx="8.5" cy="8.5" r="1.2" fill="currentColor" /><circle cx="15.5" cy="15.5" r="1.2" fill="currentColor" /><circle cx="12" cy="12" r="1.2" fill="currentColor" /><circle cx="15.5" cy="8.5" r="1.2" fill="currentColor" /><circle cx="8.5" cy="15.5" r="1.2" fill="currentColor" /></svg>;
+}

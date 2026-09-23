@@ -118,11 +118,6 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 400; letter-spacing: -.02em
 .hero-lead { color: var(--muted); font-size: 17px; margin-bottom: 16px; max-width: 36em; }
 .hero-photo { position: relative; min-height: 280px; border-radius: 18px; overflow: hidden; box-shadow: var(--shadow); background: var(--line); }
 .hero-photo img { object-fit: cover; object-position: center 58%; }
-.kitchen-pill { position: absolute; left: 14px; right: 14px; bottom: 14px; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 0; border-radius: 12px; background: rgba(251, 248, 241, .95); box-shadow: var(--shadow); text-align: left; font-size: 14px; color: var(--choc); }
-.kitchen-pill svg { color: var(--walnut); }
-.kitchen-pill strong { color: var(--forest); }
-.kitchen-pill-action { margin-left: auto; padding: 6px 12px; border-radius: 8px; background: var(--forest); color: var(--paper); font-weight: 700; }
-.kitchen-pill:hover .kitchen-pill-action { background: var(--forest-deep); }
 .search-panel { padding: 18px 20px; background: var(--paper); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); }
 .segmented { display: inline-flex; gap: 4px; padding: 4px; margin: 0 0 12px; border: 0; background: var(--cream); border-radius: 10px; }
 .segmented label { position: relative; }
@@ -297,7 +292,8 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 400; letter-spacing: -.02em
 }
 @media (max-width: 900px) {
   .hero { grid-template-columns: 1fr; gap: 18px; }
-  .hero-photo { order: -1; min-height: 0; height: 170px; }
+  .hero-photo { min-height: 0; height: 170px; }
+  .hero-side .hero-photo { flex: none; }
   .hero-photo img { object-position: center 40%; }
   .recipe-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .recipe-hero { grid-template-columns: 1fr; }
@@ -329,7 +325,7 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 400; letter-spacing: -.02em
   .search-panel { padding: 14px; }
   /* After a search the results matter most: keep only the search form on top. */
   .hero--searched h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
-  .hero--searched .hero-lead { display: none; }
+  .hero--searched .hero-lead, .hero--searched .hero-side { display: none; }
   .search-modes { display: flex; }
   .search-modes label { flex: 1; text-align: center; }
   .search-row { flex-direction: column; }
@@ -349,4 +345,39 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 400; letter-spacing: -.02em
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+
+/* ---------- Filters, surprise, kitchen selection, AI cards ---------- */
+.filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; min-width: 0; margin: 10px 0 0; padding: 0; border: 0; }
+.filters label { flex: 0 1 220px; min-width: 0; }
+.filters select { width: 100%; min-height: 40px; padding: 6px 32px 6px 12px; border: 1.5px solid #D5C9B5; border-radius: 10px; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236A5F55' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center / 16px; font-size: 15px; appearance: none; }
+.filters select:focus-visible { outline: 3px solid var(--ochre); outline-offset: 1px; }
+.filters-note { color: var(--muted); font-size: 13px; }
+.link-button { padding: 4px 2px; border: 0; background: none; color: var(--terra); font-weight: 700; font-size: 14px; text-decoration: underline; text-underline-offset: 3px; }
+.hero-side { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.hero-side .hero-photo { flex: 1; }
+.surprise-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 12px 14px; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); }
+.surprise-row p { margin: 0; color: var(--muted); font-size: 13px; flex: 1 1 220px; }
+.surprise-row .btn svg { width: 20px; height: 20px; }
+.kitchen-list-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: 20px; }
+.kitchen-list-head h3 { margin: 0; font-size: 19px; }
+.kitchen-list-head span { color: var(--muted); font-size: 13px; white-space: nowrap; }
+.kitchen-list li label { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+.kitchen-list li input { width: 18px; height: 18px; accent-color: var(--forest); }
+.kitchen-list li.is-picked { border-color: var(--forest); background: var(--moss-soft); }
+.kitchen-list li:has(input:disabled) label { cursor: not-allowed; opacity: .55; }
+.ai-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 18px; }
+.ai-card { display: flex; flex-direction: column; gap: 6px; padding: 18px; background: var(--paper); border: 1px solid var(--line); border-top: 4px solid var(--moss); border-radius: 14px; box-shadow: var(--shadow); }
+.ai-card h3 { margin: 0; font-size: 21px; line-height: 1.25; }
+.ai-card-meta { margin: 0; color: var(--walnut); font-weight: 600; font-size: 14px; }
+.ai-card-request { margin: 0; color: var(--muted); font-size: 14px; font-style: italic; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ai-card-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-top: auto; padding-top: 10px; }
+.confirm-box { margin-top: 10px; padding: 12px; border: 1px solid #E6C2B1; border-radius: 10px; background: var(--terra-soft); }
+.confirm-box p { margin: 0 0 10px; color: var(--error); font-size: 14px; }
+.confirm-box div { display: flex; flex-wrap: wrap; gap: 8px; }
+@media (max-width: 760px) {
+  .filters { display: grid; grid-template-columns: 1fr 1fr; }
+  .filters label { flex: none; }
+  .filters select { font-size: 14px; min-height: 42px; }
+  .filters .link-button, .filters-note { grid-column: 1 / -1; justify-self: start; }
 }

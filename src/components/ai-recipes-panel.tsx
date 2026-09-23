@@ -20,6 +20,7 @@ export function AiRecipesPanel() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmId, setConfirmId] = useState<string | null>(null);
 
   useEffect(() => {
     if (userLoading || !userId) return;
@@ -80,6 +81,7 @@ export function AiRecipesPanel() {
       );
     } finally {
       setDeletingId(null);
+      setConfirmId(null);
     }
   }
 
@@ -152,48 +154,52 @@ export function AiRecipesPanel() {
           </p>
         </div>
       ) : (
-        <div className="recipe-grid">
+        <div className="ai-grid">
           {recipes.map((recipe) => (
-            <article
-              className="recipe-card"
-              key={recipe.id}
-            >
-              <div className="card-body">
-                <span className="recipe-id">
-                  AI RECEPTAS ·{" "}
-                  {new Date(
-                    recipe.created_at,
-                  ).toLocaleDateString("lt-LT")}
-                </span>
+            <article className="ai-card" key={recipe.id} aria-labelledby={`ai-${recipe.id}`}>
+              <span className="recipe-id">
+                AI RECEPTAS · {new Date(recipe.created_at).toLocaleDateString("lt-LT")}
+              </span>
+              <h3 id={`ai-${recipe.id}`}>{recipe.original_recipe_name}</h3>
+              <p className="ai-card-meta">
+                {recipe.time_minutes} min · {recipe.servings} porc. · {AI_PREFERENCES[recipe.preference]}
+              </p>
+              <p className="ai-card-request">„{recipe.user_request}“</p>
 
-                <h3>{recipe.original_recipe_name}</h3>
-
-                <p>
-                  {recipe.time_minutes} min ·{" "}
-                  {recipe.servings} porc. ·{" "}
-                  {AI_PREFERENCES[recipe.preference]}
-                </p>
-
-                <Link
-                  className="card-action"
-                  href={`/ai-receptai/${recipe.id}`}
-                >
+              <div className="ai-card-actions">
+                <Link className="btn btn-primary" href={`/ai-receptai/${recipe.id}`}>
                   Peržiūrėti receptą <ArrowIcon />
                 </Link>
-
-                <button
-                  type="button"
-                  className="secondary-button"
-                  disabled={deletingId === recipe.id}
-                  onClick={() =>
-                    void removeRecipe(recipe.id)
-                  }
-                >
-                  {deletingId === recipe.id
-                    ? "Šalinama…"
-                    : "Pašalinti"}
-                </button>
+                {confirmId !== recipe.id && (
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-small"
+                    disabled={deletingId === recipe.id}
+                    onClick={() => setConfirmId(recipe.id)}
+                  >
+                    Pašalinti
+                  </button>
+                )}
               </div>
+
+              {confirmId === recipe.id && (
+                <div className="confirm-box" role="group" aria-label="Patvirtinkite šalinimą">
+                  <p>Pašalinti „{recipe.original_recipe_name}“ iš Mano AI receptų? Šio veiksmo atšaukti negalėsi.</p>
+                  <div>
+                    <button
+                      type="button"
+                      className="btn btn-terra btn-small"
+                      disabled={deletingId === recipe.id}
+                      onClick={() => void removeRecipe(recipe.id)}
+                    >
+                      {deletingId === recipe.id ? "Šalinama…" : "Taip, pašalinti"}
+                    </button>
+                    <button type="button" className="btn btn-ghost btn-small" autoFocus onClick={() => setConfirmId(null)} disabled={deletingId === recipe.id}>
+                      Atšaukti
+                    </button>
+                  </div>
+                </div>
+              )}
             </article>
           ))}
         </div>
