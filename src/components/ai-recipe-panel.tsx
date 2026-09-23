@@ -6,9 +6,11 @@ import {
   validateAiRequest,
   type AiRecipeRequest,
   type AiRecipeResult,
+  type KitchenAnalysis,
 } from "@/lib/ai-recipe";
-import type { ApiOperation, ApiResponse } from "@/lib/types";
-import { DeveloperMode } from "./developer-mode";
+import { recordOperations } from "@/lib/dev-mode";
+import { useAiUser } from "@/lib/supabase/use-ai-user";
+import type { ApiResponse } from "@/lib/types";
 import { SaveAiRecipeButton } from "./save-ai-recipe-button";
 import styles from "./ai-recipe-panel.module.css";
 
@@ -20,6 +22,7 @@ export function AiRecipePanel({
   recipeName: string;
 }) {
   const id = useId();
+  const { userId } = useAiUser();
 
   const [userRequest, setUserRequest] = useState("");
   const [time, setTime] = useState<AiRecipeRequest["time"]>(30);
@@ -30,8 +33,11 @@ export function AiRecipePanel({
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [useKitchen, setUseKitchen] = useState(false);
   const [text, setText] = useState("");
-  const [operation, setOperation] = useState<ApiOperation>();
+  const [kitchen, setKitchen] = useState<KitchenAnalysis>();
+  // The request text that produced the current result (saved with it).
+  const [sentRequest, setSentRequest] = useState("");
 
   const pending = useRef(false);
   const activeRequest = useRef<AbortController | null>(null);
@@ -44,6 +50,7 @@ export function AiRecipePanel({
   function edited() {
     setError("");
     setText("");
+    setKitchen(undefined);
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -51,12 +58,15 @@ export function AiRecipePanel({
 
     if (pending.current) return;
 
+    const kitchenOn = useKitchen && Boolean(userId);
     const parsed = validateAiRequest({
       recipeId,
-      userRequest,
+      // With "Mano virtuvė" the products themselves are the situation.
+      userRequest: userRequest.trim() || (kitchenOn ? "Pritaikyk receptą pagal mano virtuvės produktus." : ""),
       time,
       servings,
       preference,
+      ...(kitchenOn ? { useKitchen: true } : {}),
     });
 
     if (parsed.error) {
@@ -77,7 +87,8 @@ export function AiRecipePanel({
     setLoading(true);
     setError("");
     setText("");
-    setOperation(undefined);
+    setKitchen(undefined);
+    setSentRequest(parsed.data!.userRequest);
 
     try {
       const response = await fetch("/api/ai", {
@@ -113,7 +124,7 @@ export function AiRecipePanel({
         return;
       }
 
-      setOperation(payload?.operation);
+      recordOperations(payload?.operations ?? [payload?.operation]);
 
       if (!response.ok || payload?.error) {
         setError(
@@ -135,6 +146,7 @@ export function AiRecipePanel({
       }
 
       setText(payload.data.text);
+      setKitchen(payload.data.kitchen);
     } catch {
       if (controller.signal.aborted) return;
 
@@ -207,7 +219,24 @@ export function AiRecipePanel({
           >
             Iki 2000 simbolių. Originalo ingredientų ir
             instrukcijos kopijuoti nereikia.
+            {useKitchen && userId && " Su „Mano virtuve“ šį lauką galima palikti tuščią."}
           </p>
+
+          {userId ? (
+            <label className={styles.kitchenToggle}>
+              <input
+                type="checkbox"
+                checked={useKitchen}
+                onChange={(event) => {
+                  setUseKitchen(event.target.checked);
+                  edited();
+                }}
+              />
+              Naudoti mano „Mano virtuvė“ produktus: AI parodys, ką jau turi, ko trūksta ir kuo pakeisti
+            </label>
+          ) : (
+            <p className={styles.hint}>Prisijunk, kad AI galėtų atsižvelgti į tavo „Mano virtuvė“ produktus.</p>
+          )}
 
           <div className={styles.options}>
             <label htmlFor={`${id}-time`}>
@@ -338,15 +367,19 @@ export function AiRecipePanel({
             Tavo pritaikytas receptas
           </h3>
 
-          <div className={styles.recipeText}>
-            {text}
-          </div>
+          {kitchen ? (
+            <KitchenResult analysis={kitchen} text={text} />
+          ) : (
+            <div className={styles.recipeText}>
+              {text}
+            </div>
+          )}
 
           <SaveAiRecipeButton
             recipe={{
               recipeId,
               originalRecipeName: recipeName,
-              userRequest,
+              userRequest: sentRequest,
               time,
               servings,
               preference,
@@ -355,10 +388,38 @@ export function AiRecipePanel({
           />
         </section>
       )}
-
-      {operation && (
-        <DeveloperMode operation={operation} />
-      )}
     </section>
+  );
+}
+
+function KitchenResult({ analysis, text }: { analysis: KitchenAnalysis; text: string }) {
+  const recipe = text.split("Pritaikytas receptas:\n").slice(1).join("Pritaikytas receptas:\n") || text;
+  return (
+    <>
+      <p className={styles.hint}>Tavo produktai: {analysis.products.join(", ")}</p>
+      <div className={styles.kitchenGrid}>
+        <section aria-label="Ką jau turi">
+          <h4>✓ Ką jau turi</h4>
+          {analysis.have.length ? (
+            <ul>{analysis.have.map((item, index) => <li key={index}><strong>{item.ingredient}</strong> – {item.product}</li>)}</ul>
+          ) : <p>Nė vieno originalo ingrediento.</p>}
+        </section>
+        <section aria-label="Ko trūksta ir kuo pakeisti">
+          <h4>✗ Ko trūksta ir kuo pakeisti</h4>
+          {analysis.missing.length ? (
+            <ul>
+              {analysis.missing.map((item, index) => (
+                <li key={index}>
+                  <strong>{item.ingredient}</strong> →{" "}
+                  {item.substitutes.length ? item.substitutes.join(", ") : "pakaitalo nėra, reikės nusipirkti"}
+                </li>
+              ))}
+            </ul>
+          ) : <p>Nieko netrūksta.</p>}
+        </section>
+      </div>
+      <h4>Pritaikytas receptas</h4>
+      <div className={styles.recipeText}>{recipe}</div>
+    </>
   );
 }

@@ -9,26 +9,31 @@ import {
   type FormEvent,
 } from "react";
 import { ClientApiError, fetchApi } from "@/lib/client-api";
+import { recordOperations } from "@/lib/dev-mode";
+import { MAX_PRODUCT_LENGTH, MAX_PRODUCTS, splitProducts } from "@/lib/ingredients-lt";
 import {
   searchPath,
-  type ApiOperation,
-  type MealSummary,
+  type ProductMatch,
+  type SearchData,
+  type SearchMeal,
   type SearchMode,
 } from "@/lib/types";
 import { ArrowIcon, LeafIcon, SearchIcon } from "./icons";
 import { MealPhoto } from "./meal-photo";
-import { DeveloperMode } from "./developer-mode";
 import { AuthPanel } from "./auth-panel";
 import { SavedRecipesPanel } from "./saved-recipes-panel";
 import { AiRecipesPanel } from "./ai-recipes-panel";
+import { KitchenPanel } from "./kitchen-panel";
 
 type SearchResult = {
-  meals: MealSummary[];
-  operation?: ApiOperation;
+  meals: SearchMeal[];
+  match?: SearchData["match"];
+  products?: ProductMatch[];
   error?: string;
 };
 
-const CACHE_KEY = "fridge-rescue:last-search:v1";
+const CACHE_KEY = "fridge-rescue:last-search:v2";
+const EXAMPLES = ["vištiena", "vištiena, bulvės, sūris", "jautiena, svogūnai"];
 
 export function SearchExperience() {
   const router = useRouter();
@@ -88,7 +93,8 @@ export function SearchExperience() {
           ) {
             setResult({
               meals: cached.meals,
-              operation: cached.operation,
+              match: cached.match,
+              products: cached.products,
             });
 
             setLoading(false);
@@ -107,7 +113,7 @@ export function SearchExperience() {
       setResult({ meals: [] });
 
       try {
-        const response = await fetchApi<MealSummary[]>(
+        const response = await fetchApi<SearchData>(
           `/api/recipes?${new URLSearchParams({
             mode,
             q: query,
@@ -117,12 +123,10 @@ export function SearchExperience() {
 
         if (!isCurrent()) return;
 
-        const meals = response.data!;
+        const { meals, match, products } = response.data!;
+        recordOperations(response.operations ?? [response.operation]);
 
-        setResult({
-          meals,
-          operation: response.operation,
-        });
+        setResult({ meals, match, products });
 
         try {
           sessionStorage.setItem(
@@ -130,7 +134,8 @@ export function SearchExperience() {
             JSON.stringify({
               key,
               meals,
-              operation: response.operation,
+              match,
+              products,
               savedAt: Date.now(),
             }),
           );
@@ -140,16 +145,13 @@ export function SearchExperience() {
       } catch (error) {
         if (!isCurrent()) return;
 
+        if (error instanceof ClientApiError) recordOperations([error.operation]);
         setResult({
           meals: [],
           error:
             error instanceof Error
               ? error.message
               : "Paieška nepavyko.",
-          operation:
-            error instanceof ClientApiError
-              ? error.operation
-              : undefined,
         });
       } finally {
         if (isCurrent()) {
@@ -174,19 +176,26 @@ export function SearchExperience() {
 
     if (!trimmed) {
       setValidation(
-        "Įveskite ingredientą arba patiekalo pavadinimą anglų kalba.",
+        selectedMode === "ingredient"
+          ? "Įveskite bent vieną produktą, pavyzdžiui, vištiena."
+          : "Įveskite patiekalo pavadinimą angliškai.",
       );
       input.current?.focus();
       return;
     }
 
+    const products = splitProducts(trimmed);
     if (
       trimmed.length > 100 ||
       (selectedMode === "ingredient" &&
-        /[,;\n]/.test(trimmed))
+        (products.length === 0 ||
+          products.length > MAX_PRODUCTS ||
+          products.some((product) => product.length > MAX_PRODUCT_LENGTH)))
     ) {
       setValidation(
-        "Įveskite vieną ingredientą arba pavadinimą, ne ilgesnį nei 100 simbolių.",
+        selectedMode === "ingredient"
+          ? `Įveskite iki ${MAX_PRODUCTS} produktų, atskirtų kableliais, kiekvieną iki ${MAX_PRODUCT_LENGTH} simbolių.`
+          : "Pavadinimas turi būti ne ilgesnis nei 100 simbolių.",
       );
       input.current?.focus();
       return;
@@ -312,7 +321,7 @@ export function SearchExperience() {
             htmlFor="recipe-query"
           >
             {draftMode === "ingredient"
-              ? "Kokį produktą turi?"
+              ? "Kokius produktus turi?"
               : "Kokio patiekalo ieškai?"}
           </label>
 
@@ -338,7 +347,7 @@ export function SearchExperience() {
                 maxLength={100}
                 placeholder={
                   draftMode === "ingredient"
-                    ? "Pavyzdžiui, chicken"
+                    ? "Pavyzdžiui, vištiena, bulvės, sūris"
                     : "Pavyzdžiui, Arrabiata"
                 }
                 aria-describedby={`search-hint${
@@ -373,10 +382,18 @@ export function SearchExperience() {
             className="search-hint"
             id="search-hint"
           >
-            Ieškok <strong>angliškai</strong>.{" "}
-            {draftMode === "ingredient"
-              ? "Vienu metu įvesk vieną ingredientą."
-              : "Įvesk visą patiekalo pavadinimą arba jo dalį."}{" "}
+            {draftMode === "ingredient" ? (
+              <>
+                Rašyk <strong>lietuviškai</strong> arba angliškai. Kelis
+                produktus (iki {MAX_PRODUCTS}) atskirk kableliais, pvz.,{" "}
+                <em>vištiena, bulvės, sūris</em>.
+              </>
+            ) : (
+              <>
+                Ieškok <strong>angliškai</strong>. Įvesk visą patiekalo
+                pavadinimą arba jo dalį.
+              </>
+            )}{" "}
             Receptų tekstai pateikiami originalo kalba.
           </p>
 
@@ -393,7 +410,7 @@ export function SearchExperience() {
           <div className="examples">
             <span>Išbandyk:</span>
 
-            {["chicken", "beef", "tomato"].map(
+            {EXAMPLES.map(
               (example) => (
                 <button
                   key={example}
@@ -412,11 +429,19 @@ export function SearchExperience() {
               ),
             )}
           </div>
+
+          {query && (
+            // Plain hash link: scrolls to the kitchen without changing the search.
+            <a className="kitchen-jump" href="#mano-virtuve">
+              Mano virtuvė ↓
+            </a>
+          )}
         </form>
       </section>
 
       {!query ? (
         <>
+          <KitchenPanel />
           <SavedRecipesPanel />
           <AiRecipesPanel />
         </>
@@ -492,6 +517,8 @@ export function SearchExperience() {
               </button>
             </div>
           ) : result.meals.length === 0 ? (
+            <>
+            <ProductSummary products={result.products} />
             <div className="state-panel">
               <div className="state-icon">
                 <SearchIcon />
@@ -501,17 +528,17 @@ export function SearchExperience() {
 
               <p>
                 Pagal „{query}“ nieko neradome.
-                Patikrink anglišką rašybą
-                <br />
-                arba išbandyk kitą ingredientą ar
-                patiekalo pavadinimą.
+                {mode === "ingredient"
+                  ? " Patikrink produktų rašybą arba išbandyk kitus produktus."
+                  : " Patikrink anglišką rašybą arba išbandyk kitą pavadinimą."}
               </p>
             </div>
+            </>
           ) : (
             <>
               <p className="results-caption">
                 {mode === "ingredient"
-                  ? "Ingredientas"
+                  ? "Produktai"
                   : "Pavadinimas"}
                 : <strong>{query}</strong>
 
@@ -520,6 +547,21 @@ export function SearchExperience() {
                   paruošti.
                 </span>
               </p>
+
+              <ProductSummary products={result.products} />
+
+              {mode === "ingredient" && result.match === "partial" && (
+                <p className="match-banner match-banner--partial" role="status">
+                  Receptų su visais produktais nerasta. Rodomi daliniai
+                  atitikmenys – daugiausiai produktų atitinkantys pirmi.
+                </p>
+              )}
+              {mode === "ingredient" && result.match === "all" &&
+                (result.products?.filter((product) => product.recognized).length ?? 0) > 1 && (
+                <p className="match-banner" role="status">
+                  Visi receptai atitinka visus atpažintus produktus.
+                </p>
+              )}
 
               <div className="recipe-grid">
                 {result.meals.map(
@@ -558,6 +600,14 @@ export function SearchExperience() {
 
                         <h3>{meal.name}</h3>
 
+                        {mode === "ingredient" && result.match === "partial" && meal.matched && (
+                          <span className="card-match">
+                            Atitinka {meal.matched.length} iš{" "}
+                            {result.products?.filter((product) => product.recognized).length}:{" "}
+                            {meal.matched.join(", ")}
+                          </span>
+                        )}
+
                         <span className="card-action">
                           Peržiūrėti receptą{" "}
                           <ArrowIcon />
@@ -572,11 +622,37 @@ export function SearchExperience() {
         </section>
       )}
 
-      {query && (
-        <DeveloperMode
-          operation={result.operation}
-        />
-      )}
+      {query && <KitchenPanel />}
     </>
+  );
+}
+
+function ProductSummary({ products }: { products?: ProductMatch[] }) {
+  if (!products?.length) return null;
+  const recognized = products.filter((product) => product.recognized);
+  const unknown = products.filter((product) => !product.recognized);
+  return (
+    <div className="product-summary">
+      {recognized.length > 0 && (
+        <ul aria-label="Atpažinti produktai">
+          {recognized.map((product) => (
+            <li key={product.input}>
+              <strong>{product.input}</strong>
+              {product.source === "dictionary" && (
+                <> → {product.ingredients.join(", ")}</>
+              )}{" "}
+              <span>({product.recipeCount} rec.)</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {unknown.length > 0 && (
+        <p className="unknown-products" role="note">
+          Neatpažinti produktai:{" "}
+          <strong>{unknown.map((product) => product.input).join(", ")}</strong>.
+          Jie paieškoje nenaudojami – patikrink rašybą arba įvesk angliškai.
+        </p>
+      )}
+    </div>
   );
 }

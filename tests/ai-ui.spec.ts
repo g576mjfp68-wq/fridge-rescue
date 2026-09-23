@@ -30,8 +30,9 @@ test("AI forma siunčia tik ID ir pasirinkimus, blokuoja pakartojimus ir palieka
   await expect(page.locator(".instructions")).toBeVisible();
   await expect(page.locator(".ingredients li").first()).toBeVisible();
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  await panel.locator("summary").click();
-  await expect(panel.locator(".developer-mode")).toContainText("Gemini");
+  await page.getByRole("switch", { name: "Developer Mode" }).click();
+  await expect(page.locator(".developer-mode")).toContainText("Gemini");
+  await expect(page.locator(".developer-mode")).toContainText("/v1beta/interactions");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await panel.screenshot({ path: testInfo.outputPath("ai-panel.png") });
 });

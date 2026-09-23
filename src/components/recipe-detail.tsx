@@ -9,8 +9,8 @@ import {
   removeSavedRecipe,
   saveRecipe,
 } from "@/lib/saved-recipes";
-import { searchPath, type ApiOperation, type Meal } from "@/lib/types";
-import { DeveloperMode } from "./developer-mode";
+import { searchPath, type Meal } from "@/lib/types";
+import { recordOperations } from "@/lib/dev-mode";
 import { ArrowIcon } from "./icons";
 import { MealPhoto } from "./meal-photo";
 import { AiRecipePanel } from "./ai-recipe-panel";
@@ -27,7 +27,6 @@ export function RecipeDetail({ id }: { id: string }) {
     : "/";
 
   const [meal, setMeal] = useState<Meal>();
-  const [operation, setOperation] = useState<ApiOperation>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
@@ -48,7 +47,6 @@ export function RecipeDetail({ id }: { id: string }) {
       setLoading(true);
       setMeal(undefined);
       setError("");
-      setOperation(undefined);
 
       try {
         const response = await fetchApi<Meal>(
@@ -59,7 +57,7 @@ export function RecipeDetail({ id }: { id: string }) {
         if (controller.signal.aborted) return;
 
         setMeal(response.data);
-        setOperation(response.operation);
+        recordOperations([response.operation]);
       } catch (error) {
         if (controller.signal.aborted) return;
 
@@ -69,11 +67,7 @@ export function RecipeDetail({ id }: { id: string }) {
             : "Recepto gauti nepavyko.",
         );
 
-        setOperation(
-          error instanceof ClientApiError
-            ? error.operation
-            : undefined,
-        );
+        if (error instanceof ClientApiError) recordOperations([error.operation]);
       } finally {
         if (!controller.signal.aborted) {
           setLoading(false);
@@ -317,7 +311,6 @@ export function RecipeDetail({ id }: { id: string }) {
         )
       )}
 
-      <DeveloperMode operation={operation} />
     </div>
   );
 }

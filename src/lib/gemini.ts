@@ -9,12 +9,13 @@ export class GeminiError extends Error {
   }
 }
 
-export async function adaptRecipe(prompt: string, signal: AbortSignal) {
+export async function adaptRecipe(prompt: string, signal: AbortSignal, jsonSchema?: Record<string, unknown>) {
   const started = performance.now();
   let status: number | null = null;
   const operation = (success: boolean): ApiOperation => ({
     system: "Gemini", endpoint: "/v1beta/interactions", method: "POST",
     status, success, durationMs: Math.round(performance.now() - started),
+    path: "Naršyklė → Fridge Rescue serveris → Gemini",
   });
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) {
@@ -25,6 +26,8 @@ export async function adaptRecipe(prompt: string, signal: AbortSignal) {
     const ai = new GoogleGenAI({ apiKey, vertexai: false });
     const response = await ai.interactions.create({
       model: "gemini-3.8-flash", input: prompt, store: false,
+      // Structured output only for "Mano virtuvė"; plain text otherwise.
+      ...(jsonSchema ? { response_format: { type: "text" as const, mime_type: "application/json" as const, schema: jsonSchema } } : {}),
     }, { maxRetries: 0, timeout: 40_000, signal });
     status = response.sdkHttpResponse?.responseInternal.status ?? 200;
     const text = response.output_text?.trim();
@@ -50,6 +53,9 @@ export async function adaptRecipe(prompt: string, signal: AbortSignal) {
     }
     if (status === 404) {
       throw new GeminiError("Pasirinktas AI modelis šiuo metu nepasiekiamas. Bandykite vėliau.", 503, operation(false));
+    }
+    if (status === 500 || status === 503) {
+      throw new GeminiError("Gemini šiuo metu perkrautas arba laikinai nepasiekiamas. Bandykite po kelių minučių.", 503, operation(false));
     }
     if (details.name === "APIConnectionTimeoutError" || details.name === "TimeoutError" || details.name === "AbortError" || signal.aborted) {
       throw new GeminiError("AI neatsakė laiku arba užklausa buvo nutraukta. Bandykite dar kartą.", 504, operation(false));

@@ -48,3 +48,11 @@
   .result { padding: 20px 16px; }
   .recipeText { font-size: 14px; }
 }
+
+.kitchenToggle { display: flex; align-items: flex-start; gap: 10px; margin: 4px 0 12px; font-size: 14px; cursor: pointer; }
+.kitchenToggle input { margin-top: 3px; accent-color: var(--green); }
+.kitchenGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin: 12px 0 20px; }
+.kitchenGrid section { padding: 14px 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); }
+.kitchenGrid h4 { margin: 0 0 8px; }
+.kitchenGrid ul { margin: 0; padding-left: 18px; }
+.kitchenGrid li + li { margin-top: 4px; }

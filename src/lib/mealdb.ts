@@ -53,6 +53,7 @@ export async function queryMeals<T>(
   const operation = (success: boolean): ApiOperation => ({
     system: "TheMealDB", endpoint, method: "GET", status, success,
     durationMs: Math.round(performance.now() - started),
+    path: "Naršyklė → Fridge Rescue serveris → TheMealDB",
   });
 
   try {

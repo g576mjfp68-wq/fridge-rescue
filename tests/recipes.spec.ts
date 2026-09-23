@@ -1,21 +1,22 @@
 import { test, expect } from "@playwright/test";
-import type { ApiResponse, Meal, MealSummary } from "../src/lib/types";
+import type { ApiResponse, Meal, MealSummary, SearchData } from "../src/lib/types";
 
 test("Tuščia įvestis, klaviatūra ir pradinis vaizdas", async ({ page }, testInfo) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Atrask, ką gaminti");
   await page.getByRole("button", { name: "Rasti receptų" }).click();
-  await expect(page.getByRole("main").getByRole("alert")).toContainText("Įveskite ingredientą");
-  await expect(page.getByLabel("Kokį produktą turi?")).toBeFocused();
-  await page.getByLabel("Kokį produktą turi?").fill("chicken, beef");
-  await page.getByLabel("Kokį produktą turi?").press("Enter");
-  await expect(page.getByRole("main").getByRole("alert")).toContainText("vieną ingredientą");
-  await page.getByLabel("Kokį produktą turi?").fill("");
+  await expect(page.getByRole("main").getByRole("alert")).toContainText("Įveskite bent vieną produktą");
+  await expect(page.getByLabel("Kokius produktus turi?")).toBeFocused();
+  await page.getByLabel("Kokius produktus turi?").fill("a, b, c, d, e, f");
+  await page.getByLabel("Kokius produktus turi?").press("Enter");
+  await expect(page.getByRole("main").getByRole("alert")).toContainText("iki 5 produktų");
+  await page.getByLabel("Kokius produktus turi?").fill("");
   await expect(page.locator("html")).toHaveAttribute("lang", "lt");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("home.png"), fullPage: true });
 });
 
+// English input still goes straight to TheMealDB as before.
 for (const ingredient of ["chicken", "beef", "tomato"]) {
   test(`Tikra ${ingredient} paieška per Next.js serverį`, async ({ page }, testInfo) => {
     const directApiCalls: string[] = [];
@@ -24,19 +25,22 @@ for (const ingredient of ["chicken", "beef", "tomato"]) {
     });
     await page.goto("/");
     const responsePromise = page.waitForResponse((response) => response.url().includes("/api/recipes?") && response.url().includes(`q=${ingredient}`));
-    await page.getByRole("button", { name: ingredient, exact: true }).click();
+    await page.getByLabel("Kokius produktus turi?").fill(ingredient);
+    await page.getByLabel("Kokius produktus turi?").press("Enter");
     const response = await responsePromise;
     expect(response.status()).toBe(200);
-    const payload: ApiResponse<MealSummary[]> = await response.json();
-    expect(payload.data!.length).toBeGreaterThan(0);
-    await expect(page.locator(".recipe-card")).toHaveCount(payload.data!.length);
-    await expect(page.locator(".recipe-card").first()).toContainText(payload.data![0].id);
-    await expect(page.locator(".recipe-card").first()).toContainText(payload.data![0].name);
+    const payload: ApiResponse<SearchData> = await response.json();
+    const meals = payload.data!.meals;
+    expect(meals.length).toBeGreaterThan(0);
+    await expect(page.locator(".recipe-card")).toHaveCount(meals.length);
+    await expect(page.locator(".recipe-card").first()).toContainText(meals[0].id);
+    await expect(page.locator(".recipe-card").first()).toContainText(meals[0].name);
     await expect(page.getByRole("button", { name: "Rasti receptų" })).toBeEnabled();
     await expect.poll(() => page.locator(".card-photo img").first().evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
     expect(directApiCalls).toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-    await page.locator(".developer-mode summary").click();
+    await page.getByRole("switch", { name: "Developer Mode" }).click();
+    await expect(page.locator(".developer-mode")).toContainText("TheMealDB");
     await expect(page.locator(".developer-mode")).toContainText("filter.php");
     await expect(page.locator(".developer-mode")).toContainText("200");
     if (ingredient === "chicken") await page.screenshot({ path: testInfo.outputPath("chicken.png"), fullPage: false });
@@ -82,7 +86,7 @@ test("Pavadinimas, pilnas receptas ir išsaugota paieška grįžus", async ({ pa
 });
 
 test("Nerasti receptai, neteisinga įvestis ir ID 52940", async ({ page, request }) => {
-  for (const path of ["/api/recipes?mode=ingredient&q=", "/api/recipes?mode=other&q=chicken", "/api/recipes?mode=ingredient&q=chicken%2Cbeef", "/api/recipes/not-an-id"]) {
+  for (const path of ["/api/recipes?mode=ingredient&q=", "/api/recipes?mode=other&q=chicken", "/api/recipes?mode=ingredient&q=a%2Cb%2Cc%2Cd%2Ce%2Cf", "/api/recipes/not-an-id"]) {
     expect((await request.get(path)).status()).toBe(400);
   }
   const lookup = await request.get("/api/recipes/52940");
@@ -100,7 +104,7 @@ test("Nerasti receptai, neteisinga įvestis ir ID 52940", async ({ page, request
   expect(upstream.status()).toBe(200);
   const original = await upstream.json();
   const originalIds = Array.isArray(original.meals) ? original.meals.map((meal: { idMeal: string }) => meal.idMeal) : [];
-  expect((await encoded.json()).data.map((meal: MealSummary) => meal.id)).toEqual(originalIds);
+  expect((await encoded.json()).data.meals.map((meal: MealSummary) => meal.id)).toEqual(originalIds);
   await page.goto("/?mode=ingredient&q=zzzznonexistentingredientzzzz");
   await expect(page.getByRole("heading", { name: "Receptų nerasta" })).toBeVisible();
   await page.goto("/receptai/0");
@@ -123,7 +127,7 @@ test("HTTP klaida, limitas ir tinklo klaida turi suprantamus pranešimus", async
   await page.goto("/?mode=ingredient&q=networkfailure");
   await expect(page.getByRole("main").getByRole("alert")).toContainText("Patikrinkite interneto ryšį");
   await page.unroute("**/api/recipes?**");
-  await page.getByRole("button", { name: "chicken", exact: true }).click();
+  await page.getByRole("button", { name: "vištiena", exact: true }).click();
   await expect(page.locator(".recipe-card").first()).toBeVisible();
 });
 
@@ -147,18 +151,18 @@ test("Krovimas blokuoja pakartojimus; senas atsakymas neperrašo naujo", async (
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(query === "chicken" ? chicken : beef) });
   });
   await page.goto("/");
-  await page.getByLabel("Kokį produktą turi?").fill("chicken");
-  await page.locator("form:not(.auth-form)").evaluate((form) => { (form as HTMLFormElement).requestSubmit(); (form as HTMLFormElement).requestSubmit(); });
+  await page.getByLabel("Kokius produktus turi?").fill("chicken");
+  await page.getByRole("region", { name: "Receptų paieška" }).locator("form").evaluate((form) => { (form as HTMLFormElement).requestSubmit(); (form as HTMLFormElement).requestSubmit(); });
   await expect(page.getByRole("button", { name: "Ieškoma…" })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "beef", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "vištiena", exact: true })).toBeDisabled();
   await expect.poll(() => chickenRequests).toBe(1);
   await page.evaluate(() => window.history.pushState(null, "", "/?mode=ingredient&q=beef"));
-  await expect(page.locator(".recipe-card").first()).toContainText(beef.data[0].name);
+  await expect(page.locator(".recipe-card").first()).toContainText(beef.data.meals[0].name);
   const oldResponse = page.waitForResponse((response) => response.url().includes("q=chicken"));
   release();
   await oldResponse;
   await page.waitForTimeout(150);
-  await expect(page.getByLabel("Kokį produktą turi?")).toHaveValue("beef");
-  await expect(page.locator(".recipe-card")).toHaveCount(beef.data.length);
-  await expect(page.locator(".recipe-card").first()).toContainText(beef.data[0].name);
+  await expect(page.getByLabel("Kokius produktus turi?")).toHaveValue("beef");
+  await expect(page.locator(".recipe-card")).toHaveCount(beef.data.meals.length);
+  await expect(page.locator(".recipe-card").first()).toContainText(beef.data.meals[0].name);
 });

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
+import { trackSupabase } from "@/lib/dev-mode";
 
 type AuthMode = "login" | "register";
 
@@ -102,10 +103,10 @@ export function AuthPanel() {
 
     try {
       if (mode === "register") {
-        const { data, error: signUpError } = await client.auth.signUp({
+        const { data, error: signUpError } = await trackSupabase("/auth/v1/signup", "POST", () => client.auth.signUp({
           email: email.trim(),
           password,
-        });
+        }));
 
         if (signUpError) {
           setError(formatAuthError(signUpError, "register"));
@@ -133,10 +134,10 @@ export function AuthPanel() {
         return;
       }
 
-      const { data, error: signInError } = await client.auth.signInWithPassword({
+      const { data, error: signInError } = await trackSupabase("/auth/v1/token?grant_type=password", "POST", () => client.auth.signInWithPassword({
         email: email.trim(),
         password,
-      });
+      }));
 
       if (signInError) {
         setError(formatAuthError(signInError, "login"));
@@ -156,7 +157,7 @@ export function AuthPanel() {
     if (!client) return;
 
     setSubmitting(true);
-    const { error } = await client.auth.signOut();
+    const { error } = await trackSupabase("/auth/v1/logout", "POST", () => client.auth.signOut());
     setSubmitting(false);
 
     if (error) {

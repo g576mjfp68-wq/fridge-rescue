@@ -1,5 +1,6 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
+import { trackSupabase } from "@/lib/dev-mode";
 import type { MealSummary } from "@/lib/types";
 
 export type SavedRecipe = {
@@ -52,11 +53,11 @@ export async function getSavedRecipes(): Promise<SavedRecipe[]> {
   const client = getClient();
   const user = await requireUser(client);
 
-  const { data, error } = await client
+  const { data, error } = await trackSupabase("/rest/v1/saved_recipes", "GET", () => client
     .from("saved_recipes")
     .select("*")
     .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false }));
 
   if (error) {
     throw formatSupabaseError(error);
@@ -77,12 +78,12 @@ export async function isRecipeSaved(
     return false;
   }
 
-  const { data, error } = await client
+  const { data, error } = await trackSupabase("/rest/v1/saved_recipes", "GET", () => client
     .from("saved_recipes")
     .select("id")
     .eq("user_id", authData.user.id)
     .eq("meal_id", mealId)
-    .maybeSingle();
+    .maybeSingle());
 
   if (error) {
     throw formatSupabaseError(error);
@@ -97,12 +98,12 @@ export async function saveRecipe(
   const client = getClient();
   const user = await requireUser(client);
 
-  const { error } = await client.from("saved_recipes").insert({
+  const { error } = await trackSupabase("/rest/v1/saved_recipes", "POST", () => client.from("saved_recipes").insert({
     user_id: user.id,
     meal_id: meal.id,
     meal_name: meal.name,
     meal_image: meal.image,
-  });
+  }));
 
   if (error && error.code !== "23505") {
     throw formatSupabaseError(error);
@@ -115,11 +116,11 @@ export async function removeSavedRecipe(
   const client = getClient();
   const user = await requireUser(client);
 
-  const { error } = await client
+  const { error } = await trackSupabase("/rest/v1/saved_recipes", "DELETE", () => client
     .from("saved_recipes")
     .delete()
     .eq("user_id", user.id)
-    .eq("meal_id", mealId);
+    .eq("meal_id", mealId));
 
   if (error) {
     throw formatSupabaseError(error);

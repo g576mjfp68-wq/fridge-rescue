@@ -1,6 +1,7 @@
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
+import { trackSupabase } from "@/lib/dev-mode";
 import { validateAiRequest, type AiRecipeRequest } from "@/lib/ai-recipe";
 
 export type AiRecipe = {
@@ -44,8 +45,8 @@ async function authenticatedClient(expectedUserId?: string) {
 
 export async function getMyAiRecipes(): Promise<AiRecipe[]> {
   const { client, user } = await authenticatedClient();
-  const { data, error } = await client.from("ai_recipes").select(columns)
-    .eq("user_id", user.id).order("created_at", { ascending: false });
+  const { data, error } = await trackSupabase("/rest/v1/ai_recipes", "GET", () => client.from("ai_recipes").select(columns)
+    .eq("user_id", user.id).order("created_at", { ascending: false }));
   if (error) throw databaseError(error);
   return data ?? [];
 }
@@ -59,7 +60,7 @@ export async function saveAiRecipe(input: NewAiRecipe, expectedUserId?: string):
   const { client, user } = await authenticatedClient(expectedUserId);
   const values = parsed.data!;
   // Explicit fields: input cannot override user_id, id, or created_at.
-  const { data, error } = await client.from("ai_recipes").insert({
+  const { data, error } = await trackSupabase("/rest/v1/ai_recipes", "POST", () => client.from("ai_recipes").insert({
     user_id: user.id,
     original_recipe_name: input.originalRecipeName.trim(),
     user_request: values.userRequest,
@@ -68,7 +69,7 @@ export async function saveAiRecipe(input: NewAiRecipe, expectedUserId?: string):
     time_minutes: values.time,
     servings: values.servings,
     preference: values.preference,
-  }).select(columns).single();
+  }).select(columns).single());
   if (error) throw databaseError(error);
   if (!data) throw new Error("Serveris nepatvirtino AI recepto išsaugojimo. Patikrinkite savo AI receptų sąrašą.");
   return data;
@@ -79,8 +80,8 @@ export async function deleteAiRecipe(id: string, expectedUserId?: string): Promi
     throw new Error("Netinkamas AI recepto ID.");
   }
   const { client, user } = await authenticatedClient(expectedUserId);
-  const { data, error } = await client.from("ai_recipes").delete()
-    .eq("id", id).eq("user_id", user.id).select("id");
+  const { data, error } = await trackSupabase("/rest/v1/ai_recipes", "DELETE", () => client.from("ai_recipes").delete()
+    .eq("id", id).eq("user_id", user.id).select("id"));
   if (error) throw databaseError(error);
   if (!data?.length) throw new Error("AI receptas nerastas arba neturite teisės jo pašalinti.");
 }
@@ -95,12 +96,12 @@ export async function getMyAiRecipe(id: string): Promise<AiRecipe> {
 
   const { client, user } = await authenticatedClient();
 
-  const { data, error } = await client
+  const { data, error } = await trackSupabase("/rest/v1/ai_recipes", "GET", () => client
     .from("ai_recipes")
     .select(columns)
     .eq("id", id)
     .eq("user_id", user.id)
-    .maybeSingle();
+    .maybeSingle());
 
   if (error) {
     throw databaseError(error);
