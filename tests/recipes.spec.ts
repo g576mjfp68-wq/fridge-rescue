@@ -148,7 +148,7 @@ test("Krovimas blokuoja pakartojimus; senas atsakymas neperrašo naujo", async (
   });
   await page.goto("/");
   await page.getByLabel("Kokį produktą turi?").fill("chicken");
-  await page.locator("form").evaluate((form) => { (form as HTMLFormElement).requestSubmit(); (form as HTMLFormElement).requestSubmit(); });
+  await page.locator("form:not(.auth-form)").evaluate((form) => { (form as HTMLFormElement).requestSubmit(); (form as HTMLFormElement).requestSubmit(); });
   await expect(page.getByRole("button", { name: "Ieškoma…" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "beef", exact: true })).toBeDisabled();
   await expect.poll(() => chickenRequests).toBe(1);

@@ -14,16 +14,16 @@ import { ArrowIcon } from "./icons";
 export function AiRecipesPanel() {
   const { loading: userLoading, userId } = useAiUser();
 
-  const [recipes, setRecipes] = useState<AiRecipe[]>([]);
+  // Tagged with the owner so another user's list is never shown after switching accounts.
+  const [owned, setOwned] = useState<{ userId: string | null; recipes: AiRecipe[] }>({ userId: null, recipes: [] });
+  const recipes = !userLoading && userId && owned.userId === userId ? owned.recipes : [];
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (userLoading || !userId) {
-      setRecipes([]);
-      return;
-    }
+    if (userLoading || !userId) return;
+    const ownerId = userId;
 
     let active = true;
 
@@ -35,7 +35,7 @@ export function AiRecipesPanel() {
         const data = await getMyAiRecipes();
 
         if (active) {
-          setRecipes(data);
+          setOwned({ userId: ownerId, recipes: data });
         }
       } catch (error) {
         if (active) {
@@ -68,9 +68,10 @@ export function AiRecipesPanel() {
     try {
       await deleteAiRecipe(id, userId);
 
-      setRecipes((current) =>
-        current.filter((recipe) => recipe.id !== id),
-      );
+      setOwned((current) => ({
+        ...current,
+        recipes: current.recipes.filter((recipe) => recipe.id !== id),
+      }));
     } catch (error) {
       setError(
         error instanceof Error

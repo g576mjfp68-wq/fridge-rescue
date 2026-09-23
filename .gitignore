@@ -8,3 +8,5 @@ next-env.d.ts
 playwright-report/
 test-results/
 .DS_Store
+.vercel
+.claude/settings.local.json

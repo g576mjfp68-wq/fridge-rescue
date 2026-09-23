@@ -20,15 +20,11 @@ export function SavedRecipesPanel() {
   const client = useMemo(() => createClient(), []);
 
   const [recipes, setRecipes] = useState<SavedRecipe[]>([]);
-  const [state, setState] = useState<PanelState>("loading");
-  const [error, setError] = useState("");
+  const [state, setState] = useState<PanelState>(client ? "loading" : "error");
+  const [error, setError] = useState(client ? "" : "Supabase nėra sukonfigūruotas.");
 
   useEffect(() => {
-    if (!client) {
-      setState("error");
-      setError("Supabase nėra sukonfigūruotas.");
-      return;
-    }
+    if (!client) return;
 
     const supabase = client;
     let active = true;

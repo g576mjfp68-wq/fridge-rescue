@@ -90,14 +90,12 @@ export function RecipeDetail({ id }: { id: string }) {
   }, [id, retry]);
 
   useEffect(() => {
-    if (!meal) {
-      setSaved(false);
-      return;
-    }
+    if (!meal) return;
 
     let active = true;
 
     async function checkSavedState(mealId: string) {
+      setSaved(false);
       setCheckingSaved(true);
       setSaveError("");
       setSaveNotice("");
