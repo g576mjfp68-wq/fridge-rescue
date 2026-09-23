@@ -88,7 +88,7 @@ Reikia Node.js 24.
 ```bash
 npm install
 cp .env.example .env.local   # įrašykite savo reikšmes
-npm run dev                  # http://localhost:3000
+npm run dev -- -p 3010      # http://localhost:3010 (šis adresas yra Supabase Redirect URLs sąraše)
 ```
 
 Supabase lenteles sukuria migracijos iš `supabase/migrations`. Gemini ryšį galima patikrinti atskirai: `npm run test:gemini`.
@@ -111,7 +111,7 @@ Playwright testai (desktop ir telefono vaizdas) aiškiai skiria:
 
 ## Diegimas
 
-Vercel projektas `fridge`: `vercel deploy --prod`. Supabase **Authentication → URL Configuration** turi būti nurodytas Vercel adresas (Site URL ir Redirect URLs), kad registracijos patvirtinimo laiškas grąžintų į svetainę.
+Vercel projektas `fridge`: `vercel deploy --prod`. Supabase **Authentication → URL Configuration**: Site URL `https://fridge-mu-green.vercel.app`, Redirect URLs `https://fridge-mu-green.vercel.app/**` ir `http://localhost:3010/**`. Patikrinta: registracijos patvirtinimo laiškas grąžina į Vercel svetainę ir vartotojas prisijungia automatiškai.
 
 ## Projekto struktūra
 
