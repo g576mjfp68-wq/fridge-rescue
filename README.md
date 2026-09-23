@@ -1,88 +1,136 @@
 # Fridge Rescue
 
-Mokomoji Next.js aplikacija: receptų paieška ir pilno recepto peržiūra (3–5 užduotys). Paruoštos Supabase bibliotekos ir klientai (6 užduotis); registracija, prisijungimas ir išsaugojimas dar neįgyvendinti. Gemini neprijungtas.
+Aplikacija, kuri padeda nuspręsti, ką gaminti iš turimų produktų. Receptai gaunami iš **TheMealDB**, vartotojų paskyros ir išsaugoti duomenys laikomi **Supabase**, o receptai pritaikomi vartotojo situacijai su **Gemini**.
 
-## Paleidimas
+- Vieša versija: **https://fridge-mu-green.vercel.app**
+- Kodas: **https://github.com/g576mjfp68-wq/fridge-rescue**
+- Paaiškinimai gynimui: [docs/KONSPEKTAS.md](docs/KONSPEKTAS.md)
 
-Projektas yra tiesiai `FRIDGE` aplanke. npm paketo pavadinimas – `fridge-rescue`.
-Kurta ir tikrinta su Node.js `24.19.0`, Next.js `16.3.5`, TypeScript ir App Router.
+## Ką galima daryti
 
-```bash
-npm install
-npm run dev
+- **Ieškoti receptų** pagal kelis produktus lietuviškai („vištiena, bulvės, sūris“) arba pagal patiekalo pavadinimą. Rodomi receptai su visais produktais, o jei tokių nėra – daliniai atitikmenys („Atitinka 2 iš 3“). Neatpažinti produktai parodomi atskirai.
+- **Filtruoti** pagal kategoriją ir pasaulio virtuvę – kartu su paieška arba be teksto. Filtrai griežti.
+- **„Nustebink mane“** – atsitiktinis receptas iš visos kolekcijos.
+- **Atidaryti receptą**: nuotrauka, kategorija, kilmė, ingredientai, instrukcija, recepto ID.
+- **Registruotis ir prisijungti** (el. paštas + slaptažodis), pasirinkti vieną iš 8 avatarų ir vėliau jį pakeisti.
+- **Išsaugoti receptus** (♡) – „Mano receptai“.
+- **„Mano virtuvė“** – savo turimų produktų sąrašas; iš jo galima ieškoti receptų (iki 5 produktų).
+- **AI recepto pritaikymas**: laikas (15/30/60 min.), porcijos (1/2/4), pageidavimas (paprasčiau, pigiau, sveikiau, kuo panašiau į originalą) ir laisvas prašymas. Su „Mano virtuve“ AI parodo, ką jau turi, ko trūksta ir kuo pakeisti.
+- **Išsaugoti AI receptą** – „Mano AI receptai“.
+- **Developer Mode** – paskutinė TheMealDB, Gemini ar Supabase operacija: sistema, endpoint, metodas, tikras HTTP statusas, sėkmė, trukmė.
+
+Kiekvienas vartotojas mato tik savo išsaugotus receptus, AI receptus ir virtuvės produktus – tai užtikrina duomenų bazės **RLS** taisyklės.
+
+## Architektūra
+
+```mermaid
+flowchart LR
+  B[Naršyklė] -- "GET /api/recipes, /api/filters" --> S[Next.js serveris]
+  S -- "filter.php, search.php, lookup.php, random.php" --> M[(TheMealDB)]
+  B -- "POST /api/ai" --> S
+  S -- "originalas pagal ID" --> M
+  S -- "Gemini API + serverio raktas" --> G[(Gemini)]
+  B -- "prisijungimas, išsaugojimas (RLS)" --> DB[(Supabase)]
+  S -- "patikrina vartotoją, gauna jo virtuvę (RLS)" --> DB
 ```
 
-Atidarykite http://localhost:3000. Receptų paieška veikia ir su tuščiais Supabase laukais `.env.local` faile.
-`.gitignore` ignoruoja `.env*`, priklausomybes, build ir testų rezultatus.
-Nenaudojami mokami planai ar mokamas API raktas. TheMealDB mokomajai prieigai naudojamas viešas raktas `1`.
+| Kur | Kas vyksta |
+|---|---|
+| **Naršyklė** | Paieškos forma, filtrai, kortelės, dialogai; prisijungimas ir įrašų išsaugojimas per Supabase su vartotojo sesija (viešas publishable raktas, apsaugo RLS). |
+| **Next.js serveris** (`src/app/api`) | Visos TheMealDB užklausos; lietuviškų produktų susiejimas su TheMealDB ingredientais; filtrų sujungimas pagal receptų ID; Gemini kvietimas su slaptu raktu; vartotojo patikra ir „Mano virtuvės“ produktų gavimas AI užklausai. |
+| **Supabase** | Vartotojai, sesijos, lentelės `saved_recipes`, `ai_recipes`, `kitchen_items` su RLS. |
 
-## Supabase paruošimas (6 užduotis)
+### Serverio endpoint'ai
 
-Įdiegtos oficialios bibliotekos `@supabase/supabase-js` ir `@supabase/ssr`.
-Projekto šaknyje `.env.example` pateikia tuščius laukus, o savo reikšmes įrašykite tik į `.env.local`:
+| Endpoint | Paskirtis |
+|---|---|
+| `GET /api/recipes?mode=ingredient\|name&q=…&c=…&a=…` | Paieška pagal ingredientus arba pavadinimą, su kategorijos (`c`) ir virtuvės (`a`) filtrais |
+| `GET /api/recipes/[id]` | Pilnas receptas pagal TheMealDB ID |
+| `GET /api/recipes/random` | Atsitiktinis receptas |
+| `GET /api/filters` | Kategorijų ir virtuvių sąrašai (lietuviški pavadinimai, originalios reikšmės) |
+| `POST /api/ai` | Recepto pritaikymas su Gemini; naršyklė siunčia tik recepto ID ir pasirinkimus |
+
+Svarbūs sprendimai:
+- Nemokamas TheMealDB raktas nepalaiko kelių ingredientų užklausos (`filter.php?i=a,b` grąžina `null`) ir ignoruoja `c` bei `a` kartu, todėl serveris daro atskiras užklausas ir sujungia rezultatus pagal receptų ID.
+- Virtuvių filtrų sąrašas imamas iš pačių receptų: `list.php?a=list` pavadinimai (pvz., „French“) nesutampa su tuo, ką priima `filter.php?a=` („France“).
+- AI serveris originalų receptą pasiima pats pagal ID – naršyklė negali „pakišti“ kito recepto teksto.
+
+## Duomenų bazė ir RLS
+
+Migracijos – [supabase/migrations](supabase/migrations):
+
+| Lentelė | Stulpeliai | RLS |
+|---|---|---|
+| `saved_recipes` | `user_id`, `meal_id`, `meal_name`, `meal_image`, `created_at` | savininkas: SELECT, INSERT, DELETE |
+| `ai_recipes` | `user_id`, `original_recipe_id`, `original_recipe_name`, `user_request`, `ai_result`, `time_minutes`, `servings`, `preference`, `created_at` | savininkas: SELECT, INSERT, DELETE |
+| `kitchen_items` | `user_id`, `name`, `created_at` | savininkas: SELECT, INSERT, DELETE |
+
+Kiekviena politika tikrina `auth.uid() = user_id`. Rolė `anon` teisių neturi, `authenticated` turi tik SELECT, INSERT, DELETE (UPDATE ir TRUNCATE atimti). Avataras saugomas Supabase `user_metadata.avatar`.
+
+## Aplinkos kintamieji ir saugumas
+
+`.env.local` (neįkeliamas į GitHub – `.gitignore` ignoruoja `.env*`; šablonas – [.env.example](.env.example)):
 
 ```dotenv
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+GEMINI_API_KEY=
 ```
 
-- `NEXT_PUBLIC_SUPABASE_URL` – jūsų Supabase projekto API adresas.
-- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` – viešas aplikacijos API raktas, tinkamas naršyklei. Jis nesuteikia administratoriaus teisių ir neapeina RLS. Vartotojų autentifikavimas bei duomenų RLS taisyklės bus įgyvendinami vėlesniuose žingsniuose.
+- `NEXT_PUBLIC_…` reikšmės patenka į naršyklę – tai numatyta: publishable raktas neapeina RLS.
+- `GEMINI_API_KEY` naudojamas tik serveryje (`src/lib/gemini.ts` pažymėtas `server-only`), niekada nesiunčiamas naršyklei ir nerodomas Developer Mode.
+- Vercel'yje tie patys trys kintamieji įrašyti **Settings → Environment Variables** (Gemini raktas – kaip Secret). `.vercelignore` neleidžia įkelti `.env*` failų.
 
-Abu `NEXT_PUBLIC_` kintamieji gali patekti į naršyklės kodą. `.env.local` nelaikomas būdu juos paslėpti nuo naršyklės: failas ignoruojamas Git, kad vietinė konfigūracija ir kiti galimi slapti kintamieji nepatektų į saugyklos istoriją. `.env.example` galima versijuoti, nes jame nėra reikšmių. Užpildę laukus perkraukite `npm run dev`; produkciniam variantui reikia naujo build.
+## Paleidimas vietoje
 
-Klientų failai:
+Reikia Node.js 24.
 
-- `src/lib/supabase/client.ts`: `createClient()` naršyklės komponentams, su SSR paketo slapukų saugykla.
-- `src/lib/supabase/server.ts`: `await createClient()` serverio komponentams, Server Actions ir Route Handlers; naudoja `await cookies()` bei `getAll` / `setAll` adapterį. Serverio klientas kuriamas kiekvienai užklausai atskirai ir pažymėtas `server-only`.
-- `src/lib/supabase/config.ts`: perskaito tik abu nurodytus viešus kintamuosius. Trūkstant bent vieno, klientų kūrimo funkcijos grąžina `null`; būsimas juos naudojantis kodas turės tai patikrinti.
+```bash
+npm install
+cp .env.example .env.local   # įrašykite savo reikšmes
+npm run dev                  # http://localhost:3000
+```
 
-Šiame žingsnyje klientai neprijungti prie esamų puslapių ir nevykdomos Supabase užklausos. Prieš įjungiant autentifikavimą reikės pridėti oficialų Next.js `proxy.ts` sesijos atnaujinimui, nes serverio komponentai negali patys įrašyti slapukų. Tikras ryšys bus tikrinamas įrašius projekto reikšmes.
+Supabase lenteles sukuria migracijos iš `supabase/migrations`. Gemini ryšį galima patikrinti atskirai: `npm run test:gemini`.
 
-## Duomenų kelias
-
-1. Naršyklėje vartotojas pasirenka paieškos būdą ir įveda tekstą anglų kalba.
-2. Naršyklė kreipiasi į `GET /api/recipes?mode=ingredient&q=chicken` arba `GET /api/recipes?mode=name&q=Arrabiata`.
-3. Next.js serveris kreipiasi į TheMealDB `filter.php?i=...` arba `search.php?s=...`. Įvestis koduojama `URLSearchParams`.
-4. Kortelės rodo iš API gautą pavadinimą, nuotrauką ir ID. Nuotraukos įkeliamos tiesiogiai iš API pateiktų TheMealDB vaizdų adresų; receptų JSON gaunamas tik per serverį.
-5. Paspaudus kortelę atidaromas `/receptai/[id]`. Naršyklė prašo `GET /api/recipes/[id]`, o serveris vykdo TheMealDB `lookup.php?i=ID`.
-6. Rodoma kategorija, kilmė, netušti ingredientai su kiekiais ir originali instrukcija. Duomenys nėra ranka sukurti ar automatiškai verčiami.
-
-ID susieja paieškos rezultatą su konkrečiu receptu. Ingredientų paieška grąžina santrauką, todėl pasirinktas ID tampa pilno recepto užklausos įvestimi.
-
-Paieškos būdas ir tekstas saugomi URL. Paskutiniai rezultatai iki 30 minučių saugomi `sessionStorage`, kad grįžus būtų parodyti be pakartotinės paieškos. Jei saugykla neprieinama, paieška atkuriama iš URL ir API. Uždarius kortelę naršyklės sesijos saugykla išvaloma.
-
-## Klaidos ir prieinamumas
-
-- Tikrinama tuščia / per ilga įvestis ir keli kableliais ar kabliataškiais atskirti ingredientai.
-- Krovimo metu paieškos forma ir pavyzdžių mygtukai išjungiami; `ref` apsaugo ir nuo dviejų vienalaikių pateikimų.
-- Keičiant URL arba išeinant iš puslapio sena užklausa atšaukiama. Papildoma aktualumo patikra neleidžia senam atsakymui perrašyti naujo.
-- TheMealDB laukimo riba – 12 s, naršyklės užklausos – 18 s.
-- Atskirai rodomi nerasti rezultatai, neegzistuojantis receptas, tinklo, HTTP, netinkamų duomenų ir limitų pranešimai. Klaidas galima pakartoti rankiniu būdu; automatinės pakartojimų kilpos nėra.
-- Lietuviški laukelių pavadinimai, valdymas klaviatūra, matomas fokusas, pranešimai pagalbinėms technologijoms ir mažesnio judesio nuostatos.
-
-HTTP statusas – serverio atsakymo skaitinis kodas. `200` reiškia sėkmingą HTTP atsakymą, `400` – netinkamą įvestį, `404` – nerastą receptą, `429` – limitą, `502` – išorinės paslaugos ar jos duomenų klaidą, `504` – laukimo laiko viršijimą. `response.ok` yra `true` statusams nuo 200 iki 299; papildomai tikrinami JSON ir duomenų laukai. Tuščias paieškos rezultatas su HTTP 200 yra sėkminga užklausa, kuri nerado receptų.
-
-Išskleidžiamas Developer Mode rodo paskutinę dabartinio vaizdo TheMealDB operaciją: sistemą, endpoint, metodą, išorinės API statusą, sėkmę ir trukmę. Išorinės API statusas gali skirtis nuo vietinio atsakymo: pavyzdžiui, `lookup.php` grąžina HTTP 200 ir `meals: null`, o mūsų endpoint grąžina HTTP 404. Jokie raktai, užklausų turinys ar sesijos duomenys į šį skydelį nepatenka.
-
-## Patikros
+## Patikros ir testai
 
 ```bash
 npm run lint
+npx tsc --noEmit
 npm run build
-# Kitame terminale turi veikti npm run dev arba npm run start:
-npm run test:e2e
+npm run start -- -p 3010
+TEST_BASE_URL=http://localhost:3010 npm run test:e2e
 ```
 
-Playwright naudoja įdiegtą Google Chrome ir tikrina kompiuterio bei telefono dydžio vaizdus. Tai telefono emuliacija Chrome, ne bandymas fiziniame telefone ar Safari. `TEST_BASE_URL` leidžia pasirinkti kitą serverio adresą, `PLAYWRIGHT_CHANNEL` – kitą įdiegtą Playwright naršyklės kanalą (pvz., `chromium`).
+Playwright testai (desktop ir telefono vaizdas) aiškiai skiria:
+- **tikras integracijas** – tikras TheMealDB per mūsų serverį, filtrų rezultatai lyginami su tiesioginiais API atsakymais;
+- **tikrą Supabase** – prisijungimas, sesija, avatarai, „Mano virtuvė“, dviejų vartotojų atskyrimas ir RLS (tiesioginės užklausos kito vartotojo raktu atmetamos). Paleidžiami tik nurodžius `TEST_USER_EMAIL`, `TEST_USER_PASSWORD`, `TEST_USER_B_EMAIL`, `TEST_USER_B_PASSWORD`;
+- **imituotus testus** – Gemini atsakymai ir klaidos (429, 503, neteisingas raktas, netinkamas JSON), tinklo klaidos. Jie pažymėti komentaru *MOCKED* / „imituota“;
+- **tikrą Gemini** – tik su `LIVE_GEMINI=1` (nemokamas planas leidžia apie 20 užklausų per dieną).
 
-Testai naudoja gyvą TheMealDB: `chicken`, `beef`, `tomato`, `Arrabiata`, ID `52940`, duomenis ir nuotraukas, grįžimą mygtuku bei naršyklės „Atgal“. Papildomai tikrinama tuščia įvestis, nerasti rezultatai, URL kodavimas ir horizontalus perpildymas. Tinklo / HTTP klaidos ir užklausų lenktynės simuliuojamos; atkartojami receptų duomenys imami iš tikro API. Ekrano nuotraukos ir nesėkmingų testų medžiaga saugomos ignoruojamame `test-results` aplanke.
+## Diegimas
 
-Rankiniu būdu išbandykite abi paieškas, pasirinkite kortelę, patikrinkite ingredientus ir grįžkite į rezultatus. Sumažinkite naršyklės langą iki telefono pločio ir pabandykite naudoti tik `Tab`, rodykles bei `Enter`.
+Vercel projektas `fridge`: `vercel deploy --prod`. Supabase **Authentication → URL Configuration** turi būti nurodytas Vercel adresas (Site URL ir Redirect URLs), kad registracijos patvirtinimo laiškas grąžintų į svetainę.
 
-## Dokumentacija
+## Projekto struktūra
 
-- [Next.js diegimas](https://nextjs.org/docs/app/getting-started/installation)
-- [TheMealDB API ir mokomojo rakto sąlygos](https://www.themealdb.com/api.php)
-- [Oficialūs Supabase SSR klientai](https://supabase.com/docs/guides/auth/server-side/creating-a-client)
-- [Supabase API raktų paskirtis](https://supabase.com/docs/guides/getting-started/api-keys)
+```
+src/app/                 puslapiai ir API maršrutai (Next.js App Router)
+src/app/api/             /api/recipes, /api/recipes/[id], /api/recipes/random, /api/filters, /api/ai
+src/components/          paieška, recepto puslapis, AI skydelis, virtuvė, juosta, dialogai
+src/lib/mealdb.ts        TheMealDB užklausos ir klaidų tvarkymas
+src/lib/ingredients-lt.ts lietuviški produktai → TheMealDB ingredientai
+src/lib/gemini.ts        Gemini kvietimas (tik serveryje)
+src/lib/supabase/        Supabase klientai naršyklei ir serveriui
+src/proxy.ts             Supabase sesijos atnaujinimas (Next.js 16 proxy)
+supabase/migrations/     lentelės, RLS politikos, teisės
+tests/                   Playwright testai
+design/maketai/          dizaino maketai, iš kurių pasirinktas „Miško trobelė“ variantas
+```
+
+## Šaltiniai
+
+- Receptai ir jų nuotraukos: [TheMealDB](https://www.themealdb.com/) (mokomasis raktas `1`).
+- Įvado nuotrauka: Anya Chernykh, [Unsplash](https://unsplash.com/photos/yMPAXThkgQI) (Unsplash License).
+- Avatarai ir logotipas sukurti šiam projektui (SVG).
