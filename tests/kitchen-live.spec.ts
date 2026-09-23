@@ -1,4 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
+import { openKitchen, signInOnPage, type Account } from "./helpers";
 
 // REAL integrations: two confirmed Supabase accounts, the real database with RLS,
 // and (only with LIVE_GEMINI=1) one real Gemini call. The only mocked step is
@@ -12,7 +13,6 @@ test.skip(!url || !key || !A.email || !A.password || !B.email || !B.password, "R
 test.describe.configure({ mode: "serial" });
 test.beforeEach(({}, testInfo) => test.skip(testInfo.project.name !== "desktop", "Tikri duomenys tikrinami vieną kartą"));
 
-type Account = { email?: string; password?: string };
 
 async function token(account: Account): Promise<{ access: string; id: string }> {
   const response = await fetch(`${url}/auth/v1/token?grant_type=password`, {
@@ -31,16 +31,18 @@ function rest(path: string, access: string | null, init: RequestInit = {}) {
   });
 }
 
-async function signIn(browser: Browser, account: Account): Promise<Page> {
+/** Signs in through the header dialog and opens the "Mano virtuvė" drawer. */
+async function signIn(browser: Browser, account: Account, kitchenOpen = true): Promise<Page> {
   const page = await (await browser.newContext()).newPage();
   await page.goto("/");
-  const panel = page.getByRole("region", { name: "Supabase autentifikacija" });
-  const form = panel.locator("form");
-  await form.getByLabel("El. paštas").fill(account.email!);
-  await form.getByLabel("Slaptažodis").fill(account.password!);
-  await form.getByRole("button", { name: "Prisijungti" }).click();
-  await expect(panel.getByText("Prisijungta kaip:")).toBeVisible();
+  await signInOnPage(page, account);
+  if (kitchenOpen) await openKitchen(page);
   return page;
+}
+
+async function reloadWithKitchen(page: Page) {
+  await page.reload();
+  await openKitchen(page);
 }
 
 function kitchen(page: Page) {
@@ -70,17 +72,18 @@ test("Mano virtuvė: išlieka perkrovus, vartotojai atskirti UI ir duomenų baz�
   await kitchen(pageA).getByRole("button", { name: "Pridėti" }).click();
   await expect(kitchen(pageA).getByRole("status")).toContainText("Jau buvo sąraše: Pomidorai");
 
+  await pageA.keyboard.press("Escape");
   await pageA.getByRole("switch", { name: "Developer Mode" }).click();
   await expect(pageA.locator(".developer-mode")).toContainText("Supabase");
   await expect(pageA.locator(".developer-mode")).toContainText("/rest/v1/kitchen_items");
 
-  await pageA.reload();
+  await reloadWithKitchen(pageA);
   await expect(kitchen(pageA).getByRole("list", { name: "Mano produktai" }).getByRole("listitem")).toHaveCount(2);
 
   const pageB = await signIn(browser, B);
   await expect(kitchen(pageB).getByText("Virtuvė tuščia.")).toBeVisible();
   await addProduct(pageB, "ryžiai");
-  await pageA.reload();
+  await reloadWithKitchen(pageA);
   await expect(kitchen(pageA).getByRole("list", { name: "Mano produktai" })).not.toContainText("ryžiai");
 
   await kitchen(pageB).getByRole("button", { name: "Pašalinti ryžiai" }).click();
@@ -112,14 +115,15 @@ test("Mano virtuvė: išlieka perkrovus, vartotojai atskirti UI ir duomenų baz�
 });
 
 test("Mano virtuvė: keli produktai per kablelį, atskiri įrašai, pašalinamas tik vidurinis", async ({ browser }) => {
-  const page = await signIn(browser, A);
+  const page = await signIn(browser, A, false);
+  await page.getByRole("switch", { name: "Developer Mode" }).click();
+  await openKitchen(page);
   const input = kitchen(page).getByLabel("Pridėk turimus produktus");
   await expect(input).toHaveAttribute("placeholder", "Pvz., kiaušiniai, pomidorai, sūris");
   const list = kitchen(page).getByRole("list", { name: "Mano produktai" });
   await expect(input).toBeEnabled(); // the field is disabled until the saved list has loaded
   const before = await list.getByRole("listitem").count();
 
-  await page.getByRole("switch", { name: "Developer Mode" }).click();
   await input.fill("  vistiena , suris,, kumpis ,  ");
   await kitchen(page).getByRole("button", { name: "Pridėti" }).click();
   await expect(kitchen(page).getByRole("status")).toContainText("Pridėta: vistiena, suris, kumpis.");
@@ -127,6 +131,7 @@ test("Mano virtuvė: keli produktai per kablelį, atskiri įrašai, pašalinamas
   await expect(input).toHaveValue("");
 
   // Developer Mode shows the real Supabase call: method, status and duration.
+  await page.keyboard.press("Escape");
   const dev = page.locator(".developer-mode");
   await expect(dev).toContainText("Supabase");
   await expect(dev).toContainText("POST");
@@ -134,6 +139,7 @@ test("Mano virtuvė: keli produktai per kablelį, atskiri įrašai, pašalinamas
   await expect(dev).toContainText("201");
   await expect(dev).toContainText(/~\d+ ms/);
 
+  await openKitchen(page);
   // Each product is its own database row.
   const a = await token(A);
   const rows = await (await rest("kitchen_items?select=id,name&name=in.(vistiena,suris,kumpis)", a.access)).json();
@@ -141,7 +147,7 @@ test("Mano virtuvė: keli produktai per kablelį, atskiri įrašai, pašalinamas
 
   await kitchen(page).getByRole("button", { name: "Pašalinti suris" }).click();
   await expect(list).not.toContainText("suris");
-  await page.reload();
+  await reloadWithKitchen(page);
   await expect(list).toContainText("vistiena");
   await expect(list).toContainText("kumpis");
   await expect(list).not.toContainText("suris");
@@ -167,20 +173,22 @@ test("Mano virtuvė: keli produktai per kablelį, atskiri įrašai, pašalinamas
 });
 
 test("Mano virtuvė pasiekiama po paieškos, paieška ir rezultatai išlieka", async ({ browser }) => {
-  const page = await signIn(browser, A);
+  const page = await signIn(browser, A, false);
   await page.getByLabel("Kokius produktus turi?").fill("jautiena, svogūnai");
   await page.getByLabel("Kokius produktus turi?").press("Enter");
   await expect(page.locator(".recipe-card").first()).toBeVisible();
   const cards = await page.locator(".recipe-card").count();
   const address = page.url();
 
-  await page.getByRole("link", { name: "Mano virtuvė ↓" }).click();
+  // The drawer opens over the results: no navigation, no scrolling.
+  await openKitchen(page);
   await expect(kitchen(page)).toBeInViewport();
   await kitchen(page).getByLabel("Pridėk turimus produktus").fill("citrinos");
   await kitchen(page).getByRole("button", { name: "Pridėti" }).click();
   await expect(kitchen(page).getByRole("list", { name: "Mano produktai" })).toContainText("citrinos");
 
-  expect(page.url().split("#")[0]).toBe(address.split("#")[0]);
+  await page.getByRole("button", { name: "Uždaryti Mano virtuvę" }).click();
+  expect(page.url()).toBe(address);
   await expect(page.getByLabel("Kokius produktus turi?")).toHaveValue("jautiena, svogūnai");
   await expect(page.locator(".recipe-card")).toHaveCount(cards);
 });
@@ -193,7 +201,7 @@ test("Tikras Gemini: AI naudoja Mano virtuvę ir rezultatą galima išsaugoti", 
   for (const name of ["pomidorai", "kiaušiniai"]) {
     expect((await rest("kitchen_items", owner.access, { method: "POST", body: JSON.stringify({ user_id: owner.id, name }) })).status).toBe(201);
   }
-  const pageA = await signIn(browser, A);
+  const pageA = await signIn(browser, A, false);
   await pageA.goto("/receptai/52940");
   const panel = pageA.getByRole("region", { name: "Pritaikyk receptą su AI" });
   await panel.getByLabel(/Naudoti mano „Mano virtuvė“ produktus/).check();
@@ -219,6 +227,7 @@ test("Tikras Gemini: AI naudoja Mano virtuvę ir rezultatą galima išsaugoti", 
   expect(aiA.at(-1).ai_result).toContain("Ko trūksta ir kuo pakeisti:");
   expect(await (await rest(`ai_recipes?select=id&id=eq.${aiA[0].id}`, b.access)).json()).toEqual([]);
 
-  const pageB = await signIn(browser, B);
+  const pageB = await signIn(browser, B, false);
+  await pageB.goto("/mano-ai-receptai");
   await expect(pageB.getByRole("region", { name: "Mano AI receptai" })).not.toContainText("Brown Stew Chicken");
 });

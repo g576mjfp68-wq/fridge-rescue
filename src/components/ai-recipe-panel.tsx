@@ -314,7 +314,7 @@ export function AiRecipePanel({
           </div>
 
           <button
-            className="primary-button"
+            className="btn btn-terra"
             type="submit"
             disabled={loading}
           >

@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="lt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fridge Rescue – dizaino maketai</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Source+Sans+3:wght@400;500;600;700&display=swap&subset=latin-ext" rel="stylesheet">
+<style>
+/* ---------- Bendra paletė ---------- */
+:root {
+  --forest: #2F4A36; --forest-deep: #22372A; --moss: #6E7F4F; --moss-soft: #E4E8D6;
+  --cream: #F5EFE3; --paper: #FBF8F1; --walnut: #6B4A33; --choc: #3B2A21;
+  --terra: #B4613F; --terra-soft: #F3E2D8; --ochre: #C39A3E; --ochre-soft: #F4E9CF;
+  --line: #E4DACA; --muted: #6A5F55;
+  --serif: "Fraunces", Georgia, serif; --sans: "Source Sans 3", "Segoe UI", Arial, sans-serif;
+  --shadow: 0 1px 2px rgba(59,42,33,.06), 0 8px 24px rgba(59,42,33,.08);
+  --radius: 12px;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: #EDE6D8; color: var(--choc); font: 16px/1.55 var(--sans); }
+img { max-width: 100%; display: block; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--ochre); outline-offset: 3px; }
+
+/* ---------- Peržiūros puslapio rėmas ---------- */
+.preview-top { position: relative; background: var(--choc); color: var(--cream); padding: 14px 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; }
+.preview-top h1 { margin: 0; font: 500 20px var(--serif); }
+.preview-top p { margin: 0; font-size: 13px; opacity: .8; }
+.tabs { display: flex; gap: 6px; margin-left: auto; flex-wrap: wrap; }
+.tabs button { border: 1px solid rgba(245,239,227,.3); background: transparent; color: var(--cream); padding: 7px 14px; border-radius: 999px; font-weight: 600; font-size: 14px; }
+.tabs button[aria-selected="true"] { background: var(--cream); color: var(--choc); }
+.wrap { max-width: 1320px; margin: 0 auto; padding: 24px 20px 64px; }
+.variant-intro { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 22px; margin-bottom: 22px; }
+.variant-intro h2 { margin: 0 0 6px; font: 500 26px var(--serif); }
+.variant-intro p { margin: 0; color: var(--muted); }
+.swatches { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+.swatches span { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.swatches i { width: 18px; height: 18px; border-radius: 50%; border: 1px solid rgba(0,0,0,.1); }
+.label { font: 600 12px var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--walnut); margin: 28px 0 10px; }
+.frame { background: var(--cream); border-radius: 14px; box-shadow: 0 20px 50px rgba(59,42,33,.18); overflow: hidden; border: 1px solid rgba(59,42,33,.12); }
+.scroll-x { overflow-x: auto; padding-bottom: 6px; }
+.desktop { min-width: 1180px; }
+.row { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 22px; align-items: start; }
+.phones { display: flex; gap: 26px; flex-wrap: wrap; }
+.phone { width: 390px; max-width: 100%; border-radius: 34px; border: 10px solid #1f1814; box-shadow: 0 20px 50px rgba(59,42,33,.25); overflow: hidden; background: var(--cream); position: relative; }
+.phone .screen { height: 780px; overflow: hidden; position: relative; }
+.variant { display: none; }
+.variant.active { display: block; }
+.note { font-size: 13px; color: var(--muted); margin-top: 8px; }
+
+/* ---------- Programos komponentai (bendri) ---------- */
+.app { font-family: var(--sans); color: var(--choc); background: var(--cream); }
+.logo { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
+.logo-mark { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; background: var(--forest); }
+.logo-mark svg { width: 24px; height: 24px; }
+.logo-text { font: 500 23px/1 var(--serif); letter-spacing: -.02em; }
+.logo-text em { font-style: italic; color: var(--terra); }
+.nav { display: flex; gap: 4px; }
+.nav a { text-decoration: none; color: inherit; font-weight: 600; font-size: 15px; padding: 8px 12px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; }
+.nav a.active { box-shadow: inset 0 -2px 0 var(--terra); border-radius: 0; }
+.count { font-size: 12px; font-weight: 700; background: var(--ochre-soft); color: var(--walnut); border-radius: 999px; padding: 1px 7px; }
+.avatar-btn { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px 3px 3px; border-radius: 999px; border: 1px solid var(--line); background: var(--paper); }
+.avatar-btn img { width: 36px; height: 36px; border-radius: 50%; }
+.avatar-btn svg { width: 14px; height: 14px; }
+.btn { border: 0; border-radius: 10px; padding: 12px 20px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; justify-content: center; white-space: nowrap; }
+.btn-primary { background: var(--forest); color: var(--paper); }
+.btn-terra { background: var(--terra); color: #fff; }
+.btn-ghost { background: transparent; border: 1px solid currentColor; }
+.btn-soft { background: var(--moss-soft); color: var(--forest); }
+.eyebrow { font: 700 12px var(--sans); letter-spacing: .16em; text-transform: uppercase; color: var(--terra); margin: 0 0 12px; }
+.h1 { font: 400 50px/1.08 var(--serif); letter-spacing: -.025em; margin: 0 0 14px; }
+.h1 em { color: var(--moss); font-style: italic; }
+.lead { color: var(--muted); font-size: 17px; margin: 0 0 22px; max-width: 34em; }
+.search-card { background: var(--paper); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); padding: 20px; }
+.modes { display: inline-flex; background: var(--cream); border-radius: 10px; padding: 4px; margin-bottom: 14px; }
+.modes span { padding: 6px 14px; border-radius: 8px; font-weight: 600; font-size: 14px; color: var(--muted); }
+.modes span.on { background: var(--paper); color: var(--forest); box-shadow: 0 1px 3px rgba(59,42,33,.12); }
+.field-label { display: block; font-weight: 700; margin-bottom: 6px; }
+.search-row { display: flex; gap: 10px; }
+.input { flex: 1; min-width: 0; border: 1.5px solid #D8CCB8; background: #fff; border-radius: 10px; padding: 12px 14px; font-size: 16px; display: flex; align-items: center; gap: 10px; }
+.input svg { width: 20px; height: 20px; color: var(--muted); flex-shrink: 0; }
+.hint { font-size: 14px; color: var(--muted); margin: 8px 0 0; }
+.hint b { color: var(--forest); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; align-items: center; font-size: 14px; }
+.chip { border: 1px solid var(--line); background: var(--paper); border-radius: 999px; padding: 4px 12px; font-size: 14px; }
+.chip.x { padding-right: 6px; display: inline-flex; align-items: center; gap: 6px; }
+.chip.x b { width: 20px; height: 20px; border-radius: 50%; background: var(--cream); display: grid; place-items: center; font-weight: 400; }
+.section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin: 0 0 14px; }
+.section-head h2 { font: 400 30px var(--serif); margin: 0; }
+.section-head span { color: var(--muted); font-size: 14px; }
+.banner { border-radius: 10px; padding: 10px 14px; font-size: 14px; margin-bottom: 16px; background: var(--ochre-soft); color: #6B4E17; border: 1px solid #E8D6A8; }
+.banner.unknown { background: var(--terra-soft); color: #7A3A21; border-color: #EBC8B6; }
+.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.card { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow); display: flex; flex-direction: column; }
+.card .photo { position: relative; aspect-ratio: 4/3; background: var(--line); }
+.card .photo img { width: 100%; height: 100%; object-fit: cover; }
+.heart { position: absolute; top: 10px; right: 10px; width: 38px; height: 38px; border-radius: 50%; border: 0; background: rgba(251,248,241,.94); display: grid; place-items: center; box-shadow: 0 2px 6px rgba(0,0,0,.15); }
+.heart svg { width: 20px; height: 20px; }
+.heart.on { background: var(--terra); color: #fff; }
+.match { position: absolute; left: 10px; bottom: 10px; background: rgba(34,55,42,.9); color: var(--paper); font-size: 13px; font-weight: 700; border-radius: 999px; padding: 3px 10px; }
+.match.part { background: rgba(107,74,51,.92); }
+.card .body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.card h3 { font: 500 19px/1.25 var(--serif); margin: 0; }
+.card .tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.tag { font-size: 13px; border-radius: 6px; padding: 2px 8px; background: var(--moss-soft); color: var(--forest); font-weight: 600; }
+.tag.miss { background: #F1ECE3; color: var(--muted); text-decoration: line-through; font-weight: 400; }
+.card .more { margin-top: auto; font-weight: 700; color: var(--forest); font-size: 14px; }
+.dev-toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.dev-toggle i { width: 30px; height: 18px; border-radius: 999px; background: #D9CFBF; position: relative; }
+.dev-toggle i::after { content: ""; position: absolute; top: 3px; left: 3px; width: 12px; height: 12px; border-radius: 50%; background: #fff; }
+.footer { border-top: 1px solid var(--line); padding: 16px 32px; display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); }
+
+/* Paskyros meniu */
+.menu { width: 290px; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 18px 40px rgba(59,42,33,.18); padding: 8px; }
+.menu .who { display: flex; gap: 12px; align-items: center; padding: 10px 10px 12px; border-bottom: 1px solid var(--line); margin-bottom: 6px; }
+.menu .who img { width: 48px; height: 48px; border-radius: 50%; }
+.menu .who small { display: block; color: var(--muted); font-size: 13px; }
+.menu .who b { font-weight: 700; font-size: 15px; word-break: break-all; }
+.menu a { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 8px; text-decoration: none; color: inherit; font-weight: 600; font-size: 15px; }
+.menu a:first-of-type { background: var(--cream); }
+.menu a.out { color: var(--terra); border-top: 1px solid var(--line); border-radius: 0 0 8px 8px; margin-top: 6px; }
+.menu svg { width: 18px; height: 18px; }
+
+/* Dialogas */
+.dialog { background: var(--paper); border-radius: 18px; box-shadow: 0 30px 70px rgba(59,42,33,.3); padding: 26px; max-width: 460px; }
+.dialog h3 { font: 400 28px var(--serif); margin: 0 0 4px; }
+.dialog .sub { color: var(--muted); margin: 0 0 16px; font-size: 15px; }
+.dtabs { display: grid; grid-template-columns: 1fr 1fr; background: var(--cream); border-radius: 10px; padding: 4px; margin-bottom: 16px; }
+.dtabs span { text-align: center; padding: 8px; border-radius: 8px; font-weight: 700; color: var(--muted); }
+.dtabs span.on { background: var(--paper); color: var(--forest); box-shadow: 0 1px 3px rgba(59,42,33,.12); }
+.f { display: grid; gap: 5px; margin-bottom: 12px; font-weight: 700; font-size: 14px; }
+.f .input { font-weight: 400; }
+.avatars { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 8px 0 6px; }
+.avatars label { display: grid; justify-items: center; gap: 4px; font-size: 12px; color: var(--muted); padding: 6px 2px; border-radius: 12px; border: 2px solid transparent; }
+.avatars img { width: 54px; height: 54px; border-radius: 50%; }
+.avatars label.sel { border-color: var(--forest); background: var(--moss-soft); color: var(--forest); font-weight: 700; }
+.optional { font-weight: 400; color: var(--muted); font-size: 13px; }
+.dialog .foot { text-align: center; margin: 12px 0 0; font-size: 14px; color: var(--muted); }
+.dialog .foot a { color: var(--forest); font-weight: 700; }
+
+/* Virtuvės skydelis */
+.drawer { background: var(--paper); border-left: 1px solid var(--line); box-shadow: -18px 0 40px rgba(59,42,33,.15); padding: 22px; width: 380px; }
+.drawer h3 { font: 400 26px var(--serif); margin: 0 0 4px; }
+.drawer .add { display: flex; gap: 8px; margin: 14px 0 6px; }
+.drawer hr { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
+
+/* ---------- A: Miško trobelė (dominuoja žalia) ---------- */
+.va .top { background: var(--forest); color: var(--paper); }
+.va .top-inner { display: flex; align-items: center; gap: 28px; padding: 14px 32px; }
+.va .logo-mark { background: var(--paper); }
+.va .logo-text em { color: #E7B98F; }
+.va .nav { margin-left: auto; }
+.va .nav a.active { box-shadow: inset 0 -2px 0 #E7B98F; }
+.va .count { background: rgba(251,248,241,.18); color: var(--paper); }
+.va .avatar-btn { background: rgba(251,248,241,.12); border-color: rgba(251,248,241,.25); color: var(--paper); }
+.va .hero { display: grid; grid-template-columns: 1.15fr .85fr; gap: 36px; padding: 36px 32px 28px; align-items: stretch; background: linear-gradient(180deg, #EAF0E3 0, var(--cream) 100%); }
+.va .hero-photo { border-radius: 18px; overflow: hidden; box-shadow: var(--shadow); min-height: 360px; position: relative; }
+.va .hero-photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 55%; }
+.va .kitchen-pill { position: absolute; left: 16px; bottom: 16px; right: 16px; background: rgba(251,248,241,.95); border-radius: 12px; padding: 12px 14px; display: flex; align-items: center; gap: 10px; font-size: 14px; box-shadow: var(--shadow); }
+.va .kitchen-pill b { color: var(--forest); }
+.va .kitchen-pill .btn { margin-left: auto; padding: 7px 12px; font-size: 14px; }
+.va .results { padding: 8px 32px 28px; }
+.va .search-card .btn { background: var(--terra); color: #fff; }
+.va .with-drawer { display: grid; grid-template-columns: 1fr 380px; }
+.va .with-drawer .dim { position: relative; }
+.va .with-drawer .dim::after { content: ""; position: absolute; inset: 0; background: rgba(34,55,42,.35); }
+.va .tabbar { position: absolute; left: 0; right: 0; bottom: 0; background: var(--forest); color: var(--paper); display: grid; grid-template-columns: repeat(4, 1fr); padding: 8px 4px 14px; }
+.va .tabbar span { display: grid; justify-items: center; gap: 2px; font-size: 11px; font-weight: 600; opacity: .8; }
+.va .tabbar span.on { opacity: 1; color: #E7B98F; }
+.va .tabbar svg { width: 22px; height: 22px; }
+
+/* ---------- B: Medinė lentelė (dominuoja ruda ir kremas) ---------- */
+.vb { background: #F7F1E6; }
+.vb .top { background: var(--paper); border-bottom: 1px solid var(--line); }
+.vb .top-inner { display: flex; align-items: center; gap: 28px; padding: 14px 32px; }
+.vb .logo-mark { background: var(--walnut); }
+.vb .nav { margin: 0 auto; }
+.vb .nav a.active { box-shadow: inset 0 -2px 0 var(--ochre); }
+.vb .hero { position: relative; height: 430px; background: #EFE9DF url(assets/hero-wide.jpg) right 40% / cover no-repeat; }
+.vb .hero::before { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(251,248,241,.97) 0, rgba(251,248,241,.88) 38%, rgba(251,248,241,0) 64%); }
+.vb .hero-text { position: relative; padding: 52px 32px 0; max-width: 620px; }
+.vb .h1 em { color: var(--walnut); }
+.vb .eyebrow { color: var(--walnut); }
+.vb .search-card { position: relative; margin: -92px 32px 0; padding: 22px 24px; border-radius: 18px; box-shadow: 0 14px 40px rgba(59,42,33,.16); }
+.vb .search-card .search-row .btn { background: var(--walnut); color: #fff; }
+.vb .under { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--line); font-size: 14px; }
+.vb .under .btn { padding: 8px 14px; background: var(--ochre-soft); color: var(--walnut); }
+.vb .results { padding: 30px 32px 28px; }
+.vb .match { background: rgba(59,42,33,.88); }
+.vb .tag { background: var(--ochre-soft); color: #6B4E17; }
+.vb .burger { width: 42px; height: 42px; border-radius: 10px; border: 1px solid var(--line); background: var(--paper); display: grid; place-items: center; }
+.vb .burger svg { width: 22px; height: 22px; }
+.vb .mobile-menu { position: absolute; left: 12px; right: 12px; top: 64px; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 18px 40px rgba(59,42,33,.2); padding: 8px; z-index: 5; }
+.vb .mobile-menu a { display: flex; justify-content: space-between; padding: 12px; border-radius: 8px; font-weight: 700; text-decoration: none; color: inherit; }
+.vb .mobile-menu a.on { background: var(--cream); color: var(--walnut); }
+
+/* ---------- C: Ūkininkų turgus (šviesiausias, redakcinis) ---------- */
+.vc { background: var(--paper); }
+.vc .top { border-bottom: 1px solid var(--line); background: var(--paper); }
+.vc .top-inner { display: flex; align-items: center; gap: 22px; padding: 12px 32px; }
+.vc .logo-mark { background: var(--terra); }
+.vc .nav { background: var(--cream); padding: 4px; border-radius: 999px; margin-left: 12px; }
+.vc .nav a { border-radius: 999px; padding: 7px 14px; }
+.vc .nav a.active { background: var(--forest); color: var(--paper); box-shadow: none; }
+.vc .nav a.active .count { background: rgba(251,248,241,.2); color: var(--paper); }
+.vc .top-inner .avatar-btn { margin-left: auto; }
+.vc .intro { display: grid; grid-template-columns: 1fr 250px; gap: 28px; align-items: center; padding: 26px 32px 6px; }
+.vc .h1 { font-size: 42px; }
+.vc .h1 em { color: var(--terra); }
+.vc .intro img { border-radius: 16px; height: 200px; width: 100%; object-fit: cover; object-position: center 55%; box-shadow: var(--shadow); }
+.vc .grid { display: grid; grid-template-columns: 1fr 330px; gap: 26px; padding: 18px 32px 28px; align-items: start; }
+.vc .search-card { border-top: 4px solid var(--forest); }
+.vc .search-card .btn { background: var(--forest); color: #fff; }
+.vc .kitchen { position: sticky; top: 12px; background: #F2EEE2; border: 1px solid var(--line); border-radius: 16px; padding: 18px; }
+.vc .kitchen h3 { font: 400 24px var(--serif); margin: 0 0 2px; }
+.vc .kitchen .add { display: flex; gap: 6px; margin: 12px 0 4px; }
+.vc .kitchen .add .btn { background: var(--terra); color: #fff; padding: 10px 14px; }
+.vc .results { margin-top: 24px; }
+.vc .cards { grid-template-columns: repeat(2, 1fr); }
+.vc .match { background: var(--terra); }
+.vc .pills { display: flex; gap: 8px; overflow: hidden; padding: 10px 16px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.vc .pills span { padding: 7px 14px; border-radius: 999px; background: var(--cream); font-weight: 700; font-size: 14px; }
+.vc .pills span.on { background: var(--forest); color: var(--paper); }
+
+/* Mobilusis – bendra */
+.m-top { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; }
+.m-top .logo-text { font-size: 20px; }
+.m-top .logo-mark { width: 32px; height: 32px; border-radius: 9px; }
+.m-top .logo-mark svg { width: 20px; height: 20px; }
+.m-top .avatar-btn img { width: 32px; height: 32px; }
+.m-body { padding: 16px; }
+.m-body .h1 { font-size: 32px; }
+.m-body .lead { font-size: 15px; margin-bottom: 14px; }
+.m-body .search-card { padding: 14px; }
+.m-body .search-row { flex-direction: column; }
+.m-body .cards { grid-template-columns: 1fr; margin-top: 16px; }
+.m-body .card .photo { aspect-ratio: 16/9; }
+
+@media (max-width: 720px) { .preview-top { position: static; } .tabs { margin-left: 0; } }
+</style>
+</head>
+<body>
+<header class="preview-top">
+  <div>
+    <h1>Fridge Rescue – rudeniški dizaino maketai</h1>
+    <p>Statinis peržiūros puslapis. Jokių duomenų nekeičia ir nesikreipia į programą, Supabase ar Gemini.</p>
+  </div>
+  <div class="tabs" role="tablist" aria-label="Variantai">
+    <button role="tab" aria-selected="true" data-v="a">A · Miško trobelė</button>
+    <button role="tab" aria-selected="false" data-v="b">B · Medinė lentelė</button>
+    <button role="tab" aria-selected="false" data-v="c">C · Ūkininkų turgus</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="variants"></div>
+  <p class="note" style="margin-top:32px">Nuotraukos: Anya Chernykh ir Davies Designs Studio, <a href="https://unsplash.com/license">Unsplash License</a>. Receptų nuotraukos ir pavadinimai – tikri TheMealDB duomenys paieškai „vištiena, bulvės, sūris“. Avatarai – sukurti šiam projektui (SVG).</p>
+</main>
+
+<script>
+/* ---------- Duomenys ---------- */
+const MEALS = [
+  { n: "Belgian Waterzooi Chicken", i: "https://www.themealdb.com/images/media/meals/nmxec11782498644.jpg", m: ["vištiena", "bulvės"], x: ["sūris"], saved: true },
+  { n: "Chicken Fajita Mac and Cheese", i: "https://www.themealdb.com/images/media/meals/qrqywr1503066605.jpg", m: ["vištiena", "sūris"], x: ["bulvės"] },
+  { n: "Chorizo, potato & cheese omelette", i: "https://www.themealdb.com/images/media/meals/0y6uvc1763258983.jpg", m: ["bulvės", "sūris"], x: ["vištiena"] },
+  { n: "Chicken & mushroom Hotpot", i: "https://www.themealdb.com/images/media/meals/uuuspp1511297945.jpg", m: ["vištiena", "bulvės"], x: ["sūris"] },
+];
+const AVATARS = [["lapas","Lapas"],["moliugas","Moliūgas"],["grybas","Grybas"],["obuolys","Obuolys"],["kava","Kava"],["gile","Gilė"],["kriause","Kriaušė"],["kastonas","Kaštonas"]];
+const KITCHEN = ["kiaušiniai", "pomidorai", "sūris", "bulvės", "svogūnai"];
+const EMAIL = "vardenis@pastas.lt";
+
+/* ---------- Piktogramos ---------- */
+const I = {
+  logo: (c1, c2) => `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="6" y="5" width="12" height="16" rx="2.5" stroke="${c1}" stroke-width="1.6"/><path d="M6 11h12M9 8v1.5M9 14v3" stroke="${c1}" stroke-width="1.6" stroke-linecap="round"/><path d="M12 5c0-2 1.5-3.2 3.6-3.2 0 2-1.4 3.2-3.6 3.2z" fill="${c2}"/></svg>`,
+  search: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg>`,
+  heart: (on) => `<svg viewBox="0 0 24 24" fill="${on ? "currentColor" : "none"}" stroke="${on ? "currentColor" : "#B4613F"}" stroke-width="1.8"><path d="M12 20s-7-4.4-9-8.6C1.6 8.3 3.5 5 6.8 5c2 0 3.3 1.1 4.2 2.4C11.9 6.1 13.2 5 15.2 5c3.3 0 5.2 3.3 3.8 6.4C19 15.6 12 20 12 20z"/></svg>`,
+  chev: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>`,
+  pot: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 10h16v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5zM2 10h20M9 6c0-1 1-1 1-2M14 6c0-1 1-1 1-2"/></svg>`,
+  book: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3zM5 17a3 3 0 0 1 3-3h11"/></svg>`,
+  spark: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/></svg>`,
+  face: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5c1 1.2 2.2 1.8 3.5 1.8s2.5-.6 3.5-1.8M9 9.5h.01M15 9.5h.01"/></svg>`,
+  out: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H3"/></svg>`,
+  menu: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M4 12h16M4 17h16"/></svg>`,
+};
+const av = (id) => `assets/avatars/${id}.svg`;
+
+/* ---------- Bendri blokai ---------- */
+const logo = (c1 = "#FBF8F1", c2 = "#C39A3E") => `<a class="logo" href="#" aria-label="Fridge Rescue – pradžia"><span class="logo-mark">${I.logo(c1, c2)}</span><span class="logo-text">Fridge <em>Rescue</em></span></a>`;
+const nav = (active = 0) => `<nav class="nav" aria-label="Pagrindinė navigacija">${[
+  ["Paieška"], ["Mano virtuvė", 5], ["Mano receptai", 3], ["Mano AI receptai", 1]
+].map(([t, c], i) => `<a href="#" class="${i === active ? "active" : ""}">${t}${c ? ` <span class="count">${c}</span>` : ""}</a>`).join("")}</nav>`;
+const avatarBtn = (id = "moliugas") => `<button class="avatar-btn" aria-haspopup="menu" aria-expanded="false" aria-label="Paskyros meniu"><img src="${av(id)}" alt="">${I.chev}</button>`;
+const card = (m, compact) => `<article class="card"><div class="photo"><img src="${m.i}" alt="" loading="lazy">
+  <button class="heart ${m.saved ? "on" : ""}" aria-label="${m.saved ? "Pašalinti iš Mano receptų" : "Išsaugoti"}">${I.heart(m.saved)}</button>
+  <span class="match part">Atitinka 2 iš 3</span></div>
+  <div class="body"><h3>${m.n}</h3>
+  <div class="tags">${m.m.map((t) => `<span class="tag">✓ ${t}</span>`).join("")}${compact ? "" : m.x.map((t) => `<span class="tag miss">${t}</span>`).join("")}</div>
+  <span class="more">Peržiūrėti receptą →</span></div></article>`;
+const searchCard = (btnLabel = "Ieškoti receptų") => `<div class="search-card">
+  <div class="modes"><span class="on">Pagal produktus</span><span>Pagal pavadinimą</span></div>
+  <label class="field-label">Kokius produktus turi?</label>
+  <div class="search-row"><div class="input">${I.search}<span>vištiena, bulvės, sūris</span></div><button class="btn">${btnLabel} →</button></div>
+  <p class="hint">Rašyk <b>lietuviškai</b> – kelis produktus atskirk kableliais, pvz., <i>vištiena, bulvės, sūris</i>.</p>
+  <div class="chips"><span style="color:var(--muted)">Išbandyk:</span><span class="chip">jautiena, svogūnai</span><span class="chip">grybai, grietinė</span><span class="chip">obuoliai, miltai</span></div></div>`;
+const results = (n = 3, compact) => `<div class="section-head"><h2>Tavo atradimai</h2><span>${n} iš 60 receptų · rūšiuota pagal atitikimą</span></div>
+  <p class="banner">Receptų su <b>visais trimis</b> produktais nerasta – rodomi daliniai atitikmenys, daugiausiai atitinkantys pirmi.</p>
+  <div class="cards">${MEALS.slice(0, n).map((m) => card(m, compact)).join("")}</div>`;
+const menu = (id = "moliugas") => `<div class="menu" role="menu"><div class="who"><img src="${av(id)}" alt=""><div><small>Prisijungta kaip</small><b>${EMAIL}</b></div></div>
+  <a href="#" role="menuitem">${I.face} Keisti avatarą</a><a href="#" role="menuitem">${I.book} Mano receptai</a><a href="#" role="menuitem">${I.spark} Mano AI receptai</a><a href="#" class="out" role="menuitem">${I.out} Atsijungti</a></div>`;
+const dialog = () => `<div class="dialog" role="dialog" aria-label="Registracija"><h3>Sveiki atvykę</h3><p class="sub">Išsaugok receptus, savo virtuvės produktus ir AI pritaikymus.</p>
+  <div class="dtabs"><span>Prisijungti</span><span class="on">Registruotis</span></div>
+  <div class="f">El. paštas<div class="input">${EMAIL}</div></div>
+  <div class="f">Slaptažodis<div class="input">••••••••</div></div>
+  <div class="f">Pasirink avatarą <span class="optional">(nebūtina – vėliau galėsi pakeisti)</span>
+  <div class="avatars">${AVATARS.map(([id, t], i) => `<label class="${i === 0 ? "sel" : ""}"><img src="${av(id)}" alt="">${t}${i === 0 ? " ✓" : ""}</label>`).join("")}</div></div>
+  <button class="btn btn-primary" style="width:100%">Registruotis</button>
+  <p class="foot">Jau turi paskyrą? <a href="#">Prisijunk</a></p></div>`;
+const kitchenList = () => `<div class="chips">${KITCHEN.map((k) => `<span class="chip x">${k}<b aria-label="Pašalinti ${k}">×</b></span>`).join("")}</div>`;
+const drawer = () => `<aside class="drawer"><p class="eyebrow">Mano virtuvė</p><h3>Ką turi namie?</h3><p class="hint" style="margin:0">Paieška ir rezultatai lieka vietoje – skydelis atsidaro virš jų.</p>
+  <div class="add"><div class="input" style="padding:10px 12px"><span style="color:var(--muted)">Pvz., kiaušiniai, pomidorai, sūris</span></div><button class="btn btn-soft">+ Pridėti</button></div>
+  <p class="hint">Kelis produktus atskirk kableliais – kiekvienas išsaugomas atskirai.</p>${kitchenList()}<hr>
+  <button class="btn btn-terra" style="width:100%">Ieškoti receptų iš virtuvės (5) →</button></aside>`;
+const footer = () => `<div class="footer"><span>Fridge Rescue · receptai ir nuotraukos: TheMealDB</span><span class="dev-toggle"><i></i> Developer Mode (išjungta)</span></div>`;
+const loggedOut = (extra = "") => `<div class="top"><div class="top-inner">${logo(...extra)}${nav(0)}<div style="display:flex;gap:8px;margin-left:12px"><button class="btn btn-ghost" style="padding:9px 16px">Prisijungti</button><button class="btn btn-terra" style="padding:9px 16px">Registruotis</button></div></div></div>`;
+
+/* ---------- Variantai ---------- */
+function variantA() {
+  const top = (active = 0) => `<div class="top"><div class="top-inner">${logo("#2F4A36", "#B4613F")}${nav(active)}${avatarBtn()}</div></div>`;
+  const home = `<div class="app va">${top()}
+    <section class="hero"><div><p class="eyebrow">Rudens virtuvė</p><h1 class="h1">Ką gaminsi iš to,<br>ką <em>jau turi</em>?</h1>
+      <p class="lead">Įvesk kelis produktus lietuviškai – surasime receptus ir parodysime, kiek jie atitinka.</p>${searchCard()}</div>
+      <div class="hero-photo"><img src="assets/hero-portrait.jpg" alt="Moliūgai ir hurmos ant medinės lentelės">
+      <div class="kitchen-pill">🧺 <span><b>Mano virtuvė</b> · 5 produktai</span><button class="btn btn-primary">Atidaryti</button></div></div></section>
+    <section class="results">${results(3)}</section>${footer()}</div>`;
+  const drawerView = `<div class="app va">${top(1)}<div class="with-drawer"><div class="dim"><section class="results" style="padding-top:24px">${results(2, true)}</section></div>${drawer()}</div></div>`;
+  const phone = `<div class="phone"><div class="screen app va"><div class="top"><div class="m-top">${logo("#2F4A36", "#B4613F")}${avatarBtn()}</div></div>
+    <div class="m-body"><h1 class="h1">Ką gaminsi iš to, ką <em>jau turi</em>?</h1>${searchCard("Ieškoti")}<div class="cards">${card(MEALS[0])}</div></div>
+    <nav class="tabbar" aria-label="Navigacija"><span class="on">${I.search}Paieška</span><span>${I.pot}Virtuvė</span><span>${I.book}Receptai</span><span>${I.spark}AI receptai</span></nav></div></div>`;
+  return { home, extra: `<div class="label">„Mano virtuvė“ – šoninis skydelis po paieškos (rezultatai lieka)</div><div class="scroll-x"><div class="frame desktop">${drawerView}</div></div>`, loggedOut: `<div class="app va">${loggedOut(["#2F4A36", "#B4613F"])}</div>`, phone, cls: "va" };
+}
+
+function variantB() {
+  const top = `<div class="top"><div class="top-inner">${logo("#FBF8F1", "#C39A3E")}${nav(0)}${avatarBtn("grybas")}</div></div>`;
+  const home = `<div class="app vb">${top}
+    <section class="hero"><div class="hero-text"><p class="eyebrow">Sezono produktai · jauki virtuvė</p><h1 class="h1">Vakarienė jau laukia<br><em>tavo spintelėse</em></h1>
+      <p class="lead">Įvesk kelis produktus lietuviškai, atskirtus kableliais – parodysime tinkamiausius receptus.</p></div></section>
+    ${searchCard().replace('<div class="chips">', '<div class="chips" style="display:none">').replace("</div></div>", `</div><div class="under"><span>🧺 <b>Mano virtuvė:</b> kiaušiniai, pomidorai, sūris +2</span><button class="btn">Tvarkyti virtuvę</button></div></div>`)}
+    <section class="results">${results(3)}</section>${footer()}</div>`;
+  const phone = `<div class="phone"><div class="screen app vb"><div class="top"><div class="m-top"><button class="burger" aria-label="Meniu" aria-expanded="true">${I.menu}</button>${logo("#FBF8F1", "#C39A3E")}${avatarBtn("grybas")}</div></div>
+    <div class="mobile-menu"><a class="on" href="#">Paieška</a><a href="#">Mano virtuvė <span class="count">5</span></a><a href="#">Mano receptai <span class="count">3</span></a><a href="#">Mano AI receptai <span class="count">1</span></a></div>
+    <div style="height:170px;background:url(assets/hero-wide.jpg) 70% 40%/cover"></div>
+    <div class="m-body" style="margin-top:-40px">${searchCard("Ieškoti")}<div class="cards">${card(MEALS[1])}</div></div></div></div>`;
+  return { home, extra: "", loggedOut: `<div class="app vb">${loggedOut()}</div>`, phone, cls: "vb", avatar: "grybas" };
+}
+
+function variantC() {
+  const top = `<div class="top"><div class="top-inner">${logo("#FBF8F1", "#F3E2D8")}${nav(0)}${avatarBtn("obuolys")}</div></div>`;
+  const kitchen = `<aside class="kitchen" aria-label="Mano virtuvė"><p class="eyebrow" style="color:var(--moss)">Visada šalia</p><h3>Mano virtuvė</h3>
+    <p class="hint" style="margin:0">Pridėk produktus – jie išsaugomi tavo paskyroje.</p>
+    <div class="add"><div class="input" style="padding:9px 12px;font-size:14px"><span style="color:var(--muted)">Pvz., kiaušiniai, pomidorai</span></div><button class="btn">Pridėti</button></div>${kitchenList()}
+    <p class="hint" style="margin-top:14px"><a href="#" style="color:var(--forest);font-weight:700">Ieškoti receptų iš virtuvės →</a></p></aside>`;
+  const home = `<div class="app vc">${top}
+    <section class="intro"><div><p class="eyebrow">Ruduo ant stalo</p><h1 class="h1">Ką gaminsi iš to, ką <em>jau turi</em>?</h1>
+      <p class="lead" style="margin:0">Kelis produktus įvesk lietuviškai, per kablelį. Kairėje – receptų paieška, dešinėje – tavo virtuvė.</p></div>
+      <img src="assets/hero-portrait.jpg" alt="Moliūgai ir hurmos ant medinės lentelės"></section>
+    <div class="grid"><div>${searchCard()}<section class="results">${results(2)}</section></div>${kitchen}</div>${footer()}</div>`;
+  const phone = `<div class="phone"><div class="screen app vc"><div class="top"><div class="m-top">${logo("#FBF8F1", "#F3E2D8")}${avatarBtn("obuolys")}</div></div>
+    <div class="pills"><span class="on">Paieška</span><span>Mano virtuvė · 5</span><span>Mano receptai</span><span>AI receptai</span></div>
+    <div class="m-body"><h1 class="h1">Ką gaminsi iš to, ką <em>jau turi</em>?</h1>${searchCard("Ieškoti")}<div class="cards">${card(MEALS[2])}</div></div></div></div>`;
+  return { home, extra: "", loggedOut: `<div class="app vc">${loggedOut(["#FBF8F1", "#F3E2D8"])}</div>`, phone, cls: "vc", avatar: "obuolys" };
+}
+
+const INFO = {
+  a: { title: "A · Miško trobelė", text: "Tamsi miško žalia juosta, padalintas įvadas: kairėje antraštė ir didelė paieška, dešinėje nuotrauka su „Mano virtuvė“ santrauka. Virtuvė atsidaro šoniniame skydelyje virš rezultatų. Mobiliajame – apatinė skirtukų juosta. Dominuoja žalia, terakota – tik veiksmams.", sw: [["#2F4A36","miško"],["#F5EFE3","kremas"],["#B4613F","terakota"],["#6E7F4F","samanų"]] },
+  b: { title: "B · Medinė lentelė", text: "Šviesi juosta, plati nuotrauka per visą plotį, ant jos apačios užlipusi paieškos kortelė su virtuvės santrauka. Šilčiausias: dominuoja riešutmedžio ruda ir kremas, ochros akcentai. Mobiliajame – meniu mygtukas su išskleidžiamu sąrašu.", sw: [["#6B4A33","riešutmedis"],["#F7F1E6","kremas"],["#C39A3E","ochra"],["#2F4A36","miško"]] },
+  c: { title: "C · Ūkininkų turgus", text: "Šviesiausias, redakcinis. „Piliulių“ navigacija, mažesnė nuotrauka šalia antraštės. Po ja – dvi kolonos: kairėje paieška ir rezultatai, dešinėje visada matoma lipni „Mano virtuvė“ kortelė. Terakota ryškesnė. Mobiliajame – slenkama navigacija.", sw: [["#FBF8F1","popierius"],["#2F4A36","miško"],["#B4613F","terakota"],["#F2EEE2","linas"]] },
+};
+
+const root = document.getElementById("variants");
+for (const [key, build] of [["a", variantA], ["b", variantB], ["c", variantC]]) {
+  const v = build();
+  const info = INFO[key];
+  const avatar = v.avatar || "moliugas";
+  root.insertAdjacentHTML("beforeend", `<section class="variant ${key === "a" ? "active" : ""}" id="v-${key}" role="tabpanel">
+    <div class="variant-intro"><h2>${info.title}</h2><p>${info.text}</p><div class="swatches">${info.sw.map(([c, t]) => `<span><i style="background:${c}"></i>${t}</span>`).join("")}</div></div>
+    <div class="label">Pagrindinis puslapis · prisijungus · po paieškos „vištiena, bulvės, sūris“</div>
+    <div class="scroll-x"><div class="frame desktop">${v.home}</div></div>
+    ${v.extra}
+    <div class="label">Neprisijungus – viršutinė juosta</div>
+    <div class="scroll-x"><div class="frame desktop">${v.loggedOut}</div></div>
+    <div class="row">
+      <div><div class="label">Atidarytas paskyros meniu</div><div class="frame app ${v.cls}" style="padding:18px;display:grid;justify-items:end;gap:10px;background:var(--cream)">${avatarBtn(avatar).replace('aria-expanded="false"', 'aria-expanded="true"')}${menu(avatar)}</div></div>
+      <div><div class="label">Registracija su avataro pasirinkimu (dialogas)</div><div class="frame app ${v.cls}" style="padding:22px;background:rgba(59,42,33,.35)">${dialog()}</div></div>
+    </div>
+    <div class="label">Mobilusis vaizdas (390 px)</div>
+    <div class="phones">${v.phone}</div>
+  </section>`);
+}
+document.querySelectorAll(".tabs button").forEach((button) => button.addEventListener("click", () => {
+  document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-selected", String(b === button)));
+  document.querySelectorAll(".variant").forEach((s) => s.classList.toggle("active", s.id === "v-" + button.dataset.v));
+  window.scrollTo({ top: 0 });
+}));
+</script>
+</body>
+</html>

@@ -3,8 +3,8 @@ import type { ApiResponse, Meal, MealSummary, SearchData } from "../src/lib/type
 
 test("Tuščia įvestis, klaviatūra ir pradinis vaizdas", async ({ page }, testInfo) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("Atrask, ką gaminti");
-  await page.getByRole("button", { name: "Rasti receptų" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Ką gaminsi iš to, ką jau turi?");
+  await page.getByRole("button", { name: "Ieškoti receptų" }).click();
   await expect(page.getByRole("main").getByRole("alert")).toContainText("Įveskite bent vieną produktą");
   await expect(page.getByLabel("Kokius produktus turi?")).toBeFocused();
   await page.getByLabel("Kokius produktus turi?").fill("a, b, c, d, e, f");
@@ -35,7 +35,7 @@ for (const ingredient of ["chicken", "beef", "tomato"]) {
     await expect(page.locator(".recipe-card")).toHaveCount(meals.length);
     await expect(page.locator(".recipe-card").first()).toContainText(meals[0].id);
     await expect(page.locator(".recipe-card").first()).toContainText(meals[0].name);
-    await expect(page.getByRole("button", { name: "Rasti receptų" })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Ieškoti receptų" })).toBeEnabled();
     await expect.poll(() => page.locator(".card-photo img").first().evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
     expect(directApiCalls).toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);

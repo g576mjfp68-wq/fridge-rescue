@@ -58,7 +58,10 @@ test("Tikra paieška be pilnų atitikmenų rodo dalinius atitikmenis", async ({ 
   await page.goto("/?mode=ingredient&q=" + encodeURIComponent("vištiena, bulvės, sūris"));
   await expect(page.getByText("Receptų su visais produktais nerasta.")).toBeVisible();
   const first = api.data!.meals[0];
-  await expect(page.locator(".recipe-card").first()).toContainText(`Atitinka ${first.matched!.length} iš 3: ${first.matched!.join(", ")}`);
+  const card = page.locator(".recipe-card").first();
+  await expect(card.locator(".match-badge")).toHaveText(`Atitinka ${first.matched!.length} iš 3`);
+  for (const product of first.matched!) await expect(card.getByRole("list", { name: "Atitikimas" })).toContainText(`✓ ${product}`);
+  await expect(card.locator(".match-tags .is-missing")).toHaveCount(3 - first.matched!.length);
 });
 
 test("Neatpažintas produktas aiškiai parodomas", async ({ page, request }) => {

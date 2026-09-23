@@ -16,7 +16,7 @@ export type Meal = MealSummary & {
 export type ApiOperation = {
   system: "TheMealDB" | "Gemini" | "Supabase";
   endpoint: string;
-  method: "GET" | "POST" | "DELETE";
+  method: "GET" | "POST" | "PUT" | "DELETE";
   status: number | null;
   success: boolean;
   durationMs: number;

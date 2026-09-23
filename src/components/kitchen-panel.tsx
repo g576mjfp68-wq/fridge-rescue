@@ -6,9 +6,11 @@ import { addKitchenItems, getKitchenItems, removeKitchenItem, type KitchenItem }
 import { MAX_PRODUCT_LENGTH, MAX_PRODUCTS, splitProducts, translateProduct } from "@/lib/ingredients-lt";
 import { useAiUser } from "@/lib/supabase/use-ai-user";
 import { searchPath } from "@/lib/types";
+import { openAuth } from "@/lib/ui-store";
 
-export function KitchenPanel() {
-  const id = useId();
+export function KitchenPanel({ titleId, onSearch }: { titleId?: string; onSearch?: () => void } = {}) {
+  const generated = useId();
+  const id = titleId ?? generated;
   const { loading: userLoading, userId } = useAiUser();
   // Tagged with the owner so another user's list is never shown after switching accounts.
   const [owned, setOwned] = useState<{ userId: string | null; items: KitchenItem[] }>({ userId: null, items: [] });
@@ -87,16 +89,21 @@ export function KitchenPanel() {
   const searchable = items.filter((item) => translateProduct(item.name) || /^[a-z][a-z '-]*$/i.test(item.name)).slice(0, MAX_PRODUCTS);
 
   return (
-    <section id="mano-virtuve" className="results-section kitchen-section" aria-labelledby={`${id}-heading`}>
+    <section className="kitchen-section" aria-labelledby={id}>
+      <p className="eyebrow">Mano virtuvė</p>
       <div className="section-heading">
-        <h2 id={`${id}-heading`}>Mano virtuvė</h2>
+        <h2 id={id}>Mano virtuvė</h2>
         <span>{userId ? `${items.length} produktų` : "Tavo turimi produktai"}</span>
       </div>
+      <p className="kitchen-intro">Ką turi namie? Produktai išsaugomi tavo paskyroje – paieška ir rezultatai lieka vietoje.</p>
 
       {userLoading ? (
         <p role="status">Tikrinama prisijungimo būsena…</p>
       ) : !userId ? (
-        <p className="kitchen-guest">Prisijunk, kad galėtum išsaugoti turimus produktus ir naudoti juos AI recepto pritaikymui.</p>
+        <div className="kitchen-guest">
+          <p>Prisijunk, kad galėtum išsaugoti turimus produktus ir naudoti juos AI recepto pritaikymui.</p>
+          <button type="button" className="btn btn-primary" onClick={() => openAuth("login")}>Prisijungti</button>
+        </div>
       ) : (
         <>
           <form className="kitchen-form" onSubmit={add} noValidate>
@@ -112,15 +119,15 @@ export function KitchenPanel() {
                 autoComplete="off"
                 disabled={busy || loading}
               />
-              <button type="submit" className="secondary-button" disabled={busy || loading}>
-                {busy ? "Saugoma…" : "Pridėti"}
+              <button type="submit" className="btn btn-soft" disabled={busy || loading}>
+                {busy ? "Saugoma…" : "Pridėti į virtuvę"}
               </button>
             </div>
             <p className="kitchen-hint" id={`${id}-hint`}>Kelis produktus atskirk kableliais – kiekvienas bus išsaugotas atskirai.</p>
           </form>
 
-          {notice && <p className="auth-message auth-message--success" role="status">{notice}</p>}
-          {error && <p className="auth-message auth-message--error" role="alert">{error}</p>}
+          {notice && <p className="message message--success" role="status">{notice}</p>}
+          {error && <p className="message message--error" role="alert">{error}</p>}
 
           {loading ? (
             <p role="status">Kraunami produktai…</p>
@@ -137,7 +144,7 @@ export function KitchenPanel() {
                 ))}
               </ul>
               {searchable.length > 0 && (
-                <Link className="kitchen-search" href={searchPath("ingredient", searchable.map((item) => item.name).join(", "))}>
+                <Link className="btn btn-terra btn-block kitchen-search" onClick={onSearch} href={searchPath("ingredient", searchable.map((item) => item.name).join(", "))}>
                   Ieškoti receptų iš virtuvės ({searchable.length}) →
                 </Link>
               )}
