@@ -381,3 +381,6 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 400; letter-spacing: -.02em
   .filters select { font-size: 14px; min-height: 42px; }
   .filters .link-button, .filters-note { grid-column: 1 / -1; justify-self: start; }
 }
+.show-more { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 24px; }
+.show-more p { margin: 0; color: var(--muted); font-size: 14px; }
+.show-more .btn { min-width: 220px; }

@@ -31,7 +31,8 @@ test("Tikra lietuviška vieno produkto paieška", async ({ page, request }) => {
 
   await page.goto("/");
   await page.getByRole("button", { name: "vištiena", exact: true }).click();
-  await expect(page.locator(".recipe-card")).toHaveCount(api.data!.meals.length);
+  // The first page shows up to 12 recipes.
+  await expect(page.locator(".recipe-card")).toHaveCount(Math.min(12, api.data!.meals.length));
   await expect(page.getByRole("list", { name: "Atpažinti produktai" })).toContainText("vištiena → Chicken");
 });
 
@@ -44,7 +45,7 @@ test("Tikra kelių produktų paieška rodo receptus su visais produktais", async
   expect(api.operations!.map((operation) => operation.endpoint)).toEqual(Array(4).fill("filter.php"));
 
   await page.goto("/?mode=ingredient&q=" + encodeURIComponent("jautiena, svogūnai"));
-  await expect(page.locator(".recipe-card")).toHaveCount(api.data!.meals.length);
+  await expect(page.locator(".recipe-card")).toHaveCount(Math.min(12, api.data!.meals.length));
   await expect(page.getByText("Visi receptai atitinka visus atpažintus produktus.")).toBeVisible();
 });
 

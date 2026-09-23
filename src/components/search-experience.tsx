@@ -37,6 +37,10 @@ type SearchResult = {
 };
 
 const CACHE_KEY = "fridge-rescue:last-search:v2";
+// How many cards are open, per search, so "back" from a recipe keeps the place.
+const SHOWN_KEY = "fridge-rescue:shown:v1";
+/** 12 fills whole rows at 3, 2 and 1 columns. */
+const PAGE_SIZE = 12;
 const EXAMPLES = ["vištiena", "vištiena, bulvės, sūris", "jautiena, svogūnai"];
 
 export function SearchExperience() {
@@ -68,6 +72,8 @@ export function SearchExperience() {
   const [loading, setLoading] = useState(Boolean(query));
   const [validation, setValidation] = useState("");
   const [retry, setRetry] = useState(0);
+  const [shown, setShown] = useState<{ key: string; count: number }>({ key: "", count: PAGE_SIZE });
+  const visibleCount = shown.key === key ? shown.count : PAGE_SIZE;
 
   const { userId } = useAiUser();
   // Saved meal IDs, tagged with their owner so another account never sees them.
@@ -129,6 +135,13 @@ export function SearchExperience() {
       setDraftCategory(category);
       setDraftArea(area);
       setValidation("");
+
+      try {
+        const stored = JSON.parse(sessionStorage.getItem(SHOWN_KEY) || "null");
+        if (stored?.key === key && Number.isInteger(stored.count)) setShown(stored);
+      } catch {
+        // Without storage the list simply starts with the first page.
+      }
 
       if (!hasSearch) {
         pending.current = false;
@@ -289,15 +302,38 @@ export function SearchExperience() {
     }
   }
 
-  function clearFilters() {
+  /** Clears text, filters, results and the remembered search in one step. */
+  function clearSearch() {
+    setDraft("");
+    setDraftMode("ingredient");
     setDraftCategory("");
     setDraftArea("");
     setValidation("");
-    if (!category && !area) return;
-    // The shown results were filtered: search again without filters.
-    if (draft.trim()) startSearch(draft, draftMode, {});
-    else router.push("/", { scroll: false });
+    try {
+      sessionStorage.removeItem(CACHE_KEY);
+      sessionStorage.removeItem(SHOWN_KEY);
+    } catch {
+      // Nothing to forget without storage.
+    }
+    router.push("/", { scroll: false });
+    input.current?.focus();
   }
+
+  function showMore() {
+    const next = { key, count: visibleCount + PAGE_SIZE };
+    setShown(next);
+    try {
+      sessionStorage.setItem(SHOWN_KEY, JSON.stringify(next));
+    } catch {
+      // Storage is optional.
+    }
+    // Keyboard users continue from the first newly shown recipe.
+    requestAnimationFrame(() => {
+      document.querySelectorAll<HTMLElement>(".recipe-grid .recipe-card")[visibleCount]?.focus();
+    });
+  }
+
+  const canClear = Boolean(hasSearch || draft.trim() || draftCategory || draftArea);
 
   /** One random recipe from the whole collection; filters do not apply. */
   async function surprise() {
@@ -412,8 +448,8 @@ export function SearchExperience() {
                     {filterOptions.options?.areas.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
                   </select>
                 </label>
-                {(draftCategory || draftArea || category || area) && (
-                  <button type="button" className="link-button" onClick={clearFilters}>Išvalyti filtrus</button>
+                {canClear && (
+                  <button type="button" className="link-button" onClick={clearSearch}>Išvalyti paiešką</button>
                 )}
                 {filterOptions.loading && <span className="filters-note" role="status">Kraunami filtrai…</span>}
                 {filterOptions.error && (
@@ -513,14 +549,12 @@ export function SearchExperience() {
                   {query ? <>Pagal „{query}“</> : "Pagal pasirinktus filtrus"}
                   {activeFilters && query ? <> su filtrais „{activeFilters}“</> : activeFilters ? <> „{activeFilters}“</> : null} nieko neradome.
                   {category || area
-                    ? " Kategorija ir pasaulio virtuvė yra griežti filtrai – pabandyk juos išvalyti."
+                    ? " Kategorija ir pasaulio virtuvė yra griežti filtrai – pabandyk kitus filtrus arba išvalyk paiešką."
                     : mode === "ingredient"
                       ? " Patikrink produktų rašybą arba išbandyk kitus produktus."
                       : " Patikrink anglišką rašybą arba išbandyk kitą pavadinimą."}
                 </p>
-                {(category || area) && (
-                  <button type="button" className="btn btn-ghost" onClick={clearFilters}>Išvalyti filtrus</button>
-                )}
+                <button type="button" className="btn btn-ghost" onClick={clearSearch}>Išvalyti paiešką</button>
               </div>
             </>
           ) : (
@@ -543,7 +577,7 @@ export function SearchExperience() {
               {saveMessage && <p className="message message--error" role="alert">{saveMessage}</p>}
 
               <div className="recipe-grid">
-                {result.meals.map((meal, index) => {
+                {result.meals.slice(0, visibleCount).map((meal, index) => {
                   const missing = showMatch
                     ? (result.products ?? []).filter((product) => product.recognized && !meal.matched?.includes(product.input)).map((product) => product.input)
                     : [];
@@ -594,6 +628,17 @@ export function SearchExperience() {
                   );
                 })}
               </div>
+
+              {result.meals.length > PAGE_SIZE && (
+                <div className="show-more">
+                  <p role="status">Rodoma {Math.min(visibleCount, result.meals.length)} iš {result.meals.length}</p>
+                  {visibleCount < result.meals.length && (
+                    <button type="button" className="btn btn-ghost" onClick={showMore}>
+                      Rodyti daugiau ({Math.min(PAGE_SIZE, result.meals.length - visibleCount)})
+                    </button>
+                  )}
+                </div>
+              )}
             </>
           )}
         </section>

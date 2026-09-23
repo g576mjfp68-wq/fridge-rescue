@@ -79,7 +79,7 @@ test("Paieška tik su filtru, būsena išlieka grįžus iš recepto", async ({ p
   await expect(page).toHaveURL(/c=Seafood/);
 });
 
-test("Tuščia paieška be filtrų rodo patarimą; nieko neradus galima išvalyti filtrus", async ({ page }) => {
+test("Tuščia paieška be filtrų rodo patarimą; nieko neradus galima išvalyti paiešką", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Ieškoti receptų" }).click();
   await expect(page.getByRole("main").getByRole("alert")).toContainText("arba pasirink kategoriją ar pasaulio virtuvę");
@@ -87,10 +87,13 @@ test("Tuščia paieška be filtrų rodo patarimą; nieko neradus galima išvalyt
   await page.goto("/?mode=ingredient&q=jautiena&c=Vegan");
   await expect(page.getByRole("heading", { name: "Receptų nerasta" })).toBeVisible();
   await expect(page.locator(".state-panel")).toContainText("griežti filtrai");
-  await page.locator(".state-panel").getByRole("button", { name: "Išvalyti filtrus" }).click();
-  await expect(page).not.toHaveURL(/c=Vegan/);
-  await expect(page.locator(".recipe-card").first()).toBeVisible();
+  await page.locator(".state-panel").getByRole("button", { name: "Išvalyti paiešką" }).click();
+  // Everything is cleared: address, text, filters and results.
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByLabel("Pagal kokius ingredientus ieškosime?")).toHaveValue("");
   await expect(page.getByRole("combobox", { name: "Kategorija" })).toHaveValue("");
+  await expect(page.locator(".recipe-card")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Tavo atradimai" })).toHaveCount(0);
 });
 
 test("„Nustebink mane“ atidaro atsitiktinį receptą ir registruoja operaciją", async ({ page }) => {
@@ -135,3 +138,46 @@ test("Filtrai telefone telpa be horizontalaus slinkimo", async ({ page }) => {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
+
+test("Rodoma 12 receptų, „Rodyti daugiau“ prideda kitus; grįžus iš recepto vieta išlieka", async ({ page, request }) => {
+  const total = (await search(request, { mode: "ingredient", q: "vištiena" })).data!.meals.length;
+  expect(total).toBeGreaterThan(24);
+  await page.goto("/?mode=ingredient&q=" + encodeURIComponent("vištiena"));
+  await expect(page.locator(".recipe-card")).toHaveCount(12);
+  await expect(page.locator(".show-more")).toContainText(`Rodoma 12 iš ${total}`);
+
+  await page.getByRole("button", { name: "Rodyti daugiau (12)" }).click();
+  await expect(page.locator(".recipe-card")).toHaveCount(24);
+  await expect(page.locator(".recipe-card").nth(12)).toBeFocused();
+
+  await page.locator(".recipe-card").nth(20).click();
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await page.getByRole("link", { name: "Grįžti į paiešką" }).click();
+  await expect(page.locator(".recipe-card")).toHaveCount(24);
+
+  while (await page.getByRole("button", { name: /Rodyti daugiau/ }).count()) {
+    await page.getByRole("button", { name: /Rodyti daugiau/ }).click();
+  }
+  await expect(page.locator(".recipe-card")).toHaveCount(total);
+  await expect(page.locator(".show-more")).toContainText(`Rodoma ${total} iš ${total}`);
+
+  // A new search starts from the first page again.
+  await page.getByRole("button", { name: "jautiena, svogūnai", exact: true }).click();
+  await expect(page.locator(".recipe-card")).toHaveCount(12);
+});
+
+test("„Išvalyti paiešką“ išvalo tekstą, filtrus, rezultatus ir įsimintą paiešką", async ({ page }) => {
+  await page.goto("/?mode=name&q=pie&c=Dessert");
+  await expect(page.locator(".recipe-card").first()).toBeVisible();
+  await page.getByRole("button", { name: "Išvalyti paiešką" }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByLabel("Pagal kokius ingredientus ieškosime?")).toHaveValue("");
+  await expect(page.getByLabel("Pagal kokius ingredientus ieškosime?")).toBeFocused();
+  await expect(page.getByRole("combobox", { name: "Kategorija" })).toHaveValue("");
+  await expect(page.locator(".recipe-card")).toHaveCount(0);
+  // The header "Paieška" link no longer brings the old search back.
+  await page.goto("/mano-receptai");
+  await page.getByRole("link", { name: "Paieška", exact: true }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.locator(".recipe-card")).toHaveCount(0);
+});

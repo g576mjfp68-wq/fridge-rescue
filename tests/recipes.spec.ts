@@ -32,7 +32,7 @@ for (const ingredient of ["chicken", "beef", "tomato"]) {
     const payload: ApiResponse<SearchData> = await response.json();
     const meals = payload.data!.meals;
     expect(meals.length).toBeGreaterThan(0);
-    await expect(page.locator(".recipe-card")).toHaveCount(meals.length);
+    await expect(page.locator(".recipe-card")).toHaveCount(Math.min(12, meals.length));
     await expect(page.locator(".recipe-card").first()).toContainText(meals[0].id);
     await expect(page.locator(".recipe-card").first()).toContainText(meals[0].name);
     await expect(page.getByRole("button", { name: "Ieškoti receptų" })).toBeEnabled();
@@ -163,6 +163,6 @@ test("Krovimas blokuoja pakartojimus; senas atsakymas neperrašo naujo", async (
   await oldResponse;
   await page.waitForTimeout(150);
   await expect(page.getByLabel("Pagal kokius ingredientus ieškosime?")).toHaveValue("beef");
-  await expect(page.locator(".recipe-card")).toHaveCount(beef.data.meals.length);
+  await expect(page.locator(".recipe-card")).toHaveCount(Math.min(12, beef.data.meals.length));
   await expect(page.locator(".recipe-card").first()).toContainText(beef.data.meals[0].name);
 });
