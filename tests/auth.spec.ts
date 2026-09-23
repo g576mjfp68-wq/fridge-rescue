@@ -99,8 +99,10 @@ test.describe("Tikras Supabase", () => {
 // MOCKED: the Supabase sign-up endpoint is intercepted, so no account or email is created.
 test("Registracija siunčia pasirinktą avatarą į Supabase metaduomenis (imituota)", async ({ page }) => {
   let body: { email?: string; data?: { avatar?: string } } | null = null;
+  let redirectTo: string | null = null;
   await page.route("**/auth/v1/signup**", async (route) => {
     body = route.request().postDataJSON();
+    redirectTo = new URL(route.request().url()).searchParams.get("redirect_to");
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
       id: "00000000-0000-4000-8000-000000000009", aud: "authenticated", role: "authenticated", email: body?.email,
       identities: [{ id: "x", provider: "email" }], user_metadata: body?.data ?? {}, app_metadata: {}, created_at: new Date().toISOString(),
@@ -116,4 +118,6 @@ test("Registracija siunčia pasirinktą avatarą į Supabase metaduomenis (imitu
   await dialog.locator("form").getByRole("button", { name: "Registruotis" }).click();
   await expect(dialog.getByRole("status")).toContainText("Patvirtinkite el. pašto adresą");
   expect(body).toMatchObject({ email: "naujas@example.com", data: { avatar: "moliugas" } });
+  // The confirmation email leads back to the site where the user signed up.
+  expect(redirectTo).toBe(new URL("/", page.url()).toString());
 });

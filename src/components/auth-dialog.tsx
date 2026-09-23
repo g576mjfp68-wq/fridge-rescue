@@ -80,7 +80,9 @@ function AuthForm({ mode, titleId }: { mode: AuthMode; titleId: string }) {
         const { data, error: signUpError } = await trackSupabase("/auth/v1/signup", "POST", () => client.auth.signUp({
           email: email.trim(),
           password,
-          options: { data: { avatar } },
+          // The confirmation link returns to this site (Vercel or localhost).
+          // Supabase uses it only if the URL is in Auth → URL Configuration → Redirect URLs.
+          options: { data: { avatar }, emailRedirectTo: `${window.location.origin}/` },
         }));
         if (signUpError) {
           setError(formatAuthError(signUpError, "register"));

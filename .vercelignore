@@ -1,0 +1,11 @@
+# Never upload local secrets: Vercel gets its own Environment Variables.
+.env*
+!.env.example
+# Local-only files not needed for the build.
+.next
+node_modules
+test-results
+playwright-report
+design
+.mcp.json
+.claude
