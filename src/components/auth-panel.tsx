@@ -62,10 +62,10 @@ export function AuthPanel() {
       setSessionLoaded(true);
     });
 
-    const { data: { subscription } } = client.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = client.auth.onAuthStateChange((event, session) => {
       if (!active) return;
       setUser(session?.user ?? null);
-      if (!session) {
+      if (event === "SIGNED_OUT") {
         setNotice("Jūs atsijungėte.");
       }
     });
@@ -109,6 +109,13 @@ export function AuthPanel() {
 
         if (signUpError) {
           setError(formatAuthError(signUpError, "register"));
+          return;
+        }
+
+        // With email confirmation on, Supabase answers an already registered
+        // address with HTTP 200, no session and an empty identities list.
+        if (data.user && !data.session && data.user.identities?.length === 0) {
+          setError(formatAuthError({ code: "user_already_exists" }, "register"));
           return;
         }
 

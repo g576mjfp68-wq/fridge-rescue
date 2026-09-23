@@ -22,9 +22,8 @@ export async function createClient() {
             cookieStore.set(name, value, options);
           }
         } catch {
-          // Next.js Server Components cannot write cookies. Before enabling
-          // authentication, add the official session-refresh proxy. Actions
-          // and Route Handlers can write cookies with this adapter already.
+          // Server Components cannot write cookies; src/proxy.ts refreshes
+          // the session instead. Actions and Route Handlers can write here.
         }
       },
     },
