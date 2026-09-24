@@ -206,6 +206,23 @@ RECEPTO IR VARTOTOJO DUOMENYS:
 
 Su „Mano virtuve“ serveris dar patikrina vartotoją, iš Supabase pasiima **tik jo** produktus ir paprašo Gemini grąžinti JSON pagal schemą: `have` (ką turi), `missing` su `substitutes` (ko trūksta ir kuo pakeisti) ir `recipe` (pritaikytas receptas).
 
+### Gemini: kas patikrinta ir kodėl ne viskas
+
+Projekte naudojamas **nemokamas** Gemini API raktas. Jo tikslas – suprasti, kaip veikia kelias naršyklė → serveris → Gemini, o ne gauti neribotą AI paslaugą.
+
+**Patikrinta su tikru Gemini:**
+- raktas veikia – tikri atsakymai lietuviškai gauti skirtingomis dienomis;
+- „Mano virtuvės“ užklausa su JSON schema grąžino teisingą struktūrą: `have` (ką turi), `missing` su pakaitalais (ko trūksta), `recipe` (pritaikytas receptas);
+- tikros Gemini klaidos – **429** (limitas) ir **503** („high demand“, perkrova) – programoje rodomos suprantamais pranešimais, programa nelūžta (16 punktas).
+
+**Patikrinta be tikro Gemini:**
+- AI recepto išsaugojimas, „Mano AI receptai“, šalinimas ir tai, kad kitas vartotojas jų nemato – su tikra Supabase duomenų baze ir RLS;
+- visa AI serverio logika (ką gauna Gemini, kaip apdorojamas atsakymas ir klaidos) – automatiniais testais su imituotu Gemini.
+
+**Nepatikrinta iki galo:** viena grandinė be pertraukos – tikras Gemini atsakymas su „Mano virtuve“ → išsaugojimas → antras vartotojas jo nemato. Bandymai stabtelėjo ties nemokamo plano apribojimais: Gemini grąžino „20 užklausų per dieną“ limitą (429) ir laikinas perkrovas (503).
+
+**Kaip paaiškinti gynime:** „Nemokamas planas leidžia apie 20 užklausų per dieną ir kartais būna perkrautas. Tai realus išorinės paslaugos apribojimas, ne programos klaida. Programa tai atpažįsta ir parodo aiškų pranešimą, o grandinės dalys patikrintos atskirai: Gemini atsakymas – su tikru API, išsaugojimas ir vartotojų atskyrimas – su tikra duomenų baze. Mokamame plane ar pasibaigus limitui ta pati grandinė veikia be kodo pakeitimų.“
+
 ## 15. AI recepto išsaugojimas
 
 Lentelė `ai_recipes`: originalaus recepto pavadinimas ir ID, vartotojo prašymas, AI rezultatas, laikas, porcijos, pageidavimas, sukūrimo data, `user_id`. „Mano AI receptai“ rodo tik savo įrašus (RLS). Šalinimas – tik patvirtinus.
