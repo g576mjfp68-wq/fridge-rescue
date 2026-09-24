@@ -60,6 +60,7 @@ test.beforeAll(async () => {
   for (const account of [A, B]) {
     const { access, id } = await token(account);
     await rest(`kitchen_items?user_id=eq.${id}`, access, { method: "DELETE" });
+    await rest(`shopping_items?user_id=eq.${id}`, access, { method: "DELETE" });
   }
 });
 
@@ -249,6 +250,53 @@ test("Mano AI receptai: ryškus peržiūros veiksmas, šalinimas tik patvirtinus
   await card.getByRole("button", { name: "Taip, pašalinti" }).click();
   await expect(card).toHaveCount(0);
   expect(await (await rest(`ai_recipes?select=id&id=eq.${row.id}`, owner.access)).json()).toEqual([]);
+});
+
+test("Virtuvės atitikimas kortelėse ir recepte, pirkinių sąrašas ir „Nupirkau“", async ({ browser }) => {
+  const a = await token(A);
+  const b = await token(B);
+  await rest(`kitchen_items?user_id=eq.${a.id}`, a.access, { method: "DELETE" });
+  await rest(`shopping_items?user_id=eq.${a.id}`, a.access, { method: "DELETE" });
+  for (const name of ["vištiena", "pomidorai", "svogūnai", "česnakai"]) {
+    expect((await rest("kitchen_items", a.access, { method: "POST", body: JSON.stringify({ user_id: a.id, name }) })).status).toBe(201);
+  }
+
+  const page = await signIn(browser, A, false);
+  await page.goto("/?mode=ingredient&q=" + encodeURIComponent("vištiena"));
+  await expect(page.locator(".recipe-card .card-kitchen").first()).toHaveText(/^Turi \d+ iš \d+ ingredient(ų|o)$/);
+
+  // Brown Stew Chicken: 13 ingredients, the kitchen has chicken, tomato, onions and garlic.
+  await page.goto("/receptai/52940");
+  const summary = page.locator(".kitchen-summary");
+  await expect(summary).toContainText("Turi 4 iš 13");
+  await expect(page.locator(".ingredients li").filter({ hasText: "Chicken · vištiena" })).toHaveClass(/is-have/);
+  await expect(page.locator(".ingredients li").filter({ hasText: "Carrots" })).toHaveClass(/is-missing/);
+
+  await summary.getByRole("button", { name: "Įdėti trūkstamus (9) į pirkinių sąrašą" }).click();
+  await expect(summary).toContainText("Į pirkinių sąrašą įdėta: 9.");
+  await summary.getByRole("button", { name: "Įdėti trūkstamus (9) į pirkinių sąrašą" }).click();
+  await expect(summary).toContainText("Jau buvo sąraše:");
+
+  // Real database: 9 rows for A, nothing visible or insertable for B (RLS).
+  const rows = await (await rest("shopping_items?select=name", a.access)).json();
+  expect(rows.map((row: { name: string }) => row.name)).toEqual(expect.arrayContaining(["morkos", "paprikos", "sojų padažas", "Allspice"]));
+  expect(rows).toHaveLength(9);
+  expect(await (await rest("shopping_items?select=id", b.access)).json()).toEqual([]);
+  expect((await rest("shopping_items", b.access, { method: "POST", body: JSON.stringify({ user_id: a.id, name: "svetimas" }) })).status).toBe(403);
+
+  await summary.getByRole("button", { name: "Atidaryti sąrašą" }).click();
+  const drawer = page.getByRole("dialog", { name: "Mano virtuvė" });
+  const shopping = drawer.getByRole("list", { name: "Pirkiniai" });
+  await expect(shopping).toContainText("morkos");
+  await drawer.getByRole("button", { name: "Nupirkau: morkos" }).click();
+  await expect(drawer.getByText("„morkos“ perkelta į Mano virtuvę.")).toBeVisible();
+  await expect(shopping).not.toContainText("morkos");
+  await expect(drawer.getByRole("list", { name: "Mano produktai" })).toContainText("morkos");
+
+  // Closing the drawer: the recipe recounts without a reload.
+  await drawer.getByRole("button", { name: "Uždaryti Mano virtuvę" }).click();
+  await expect(summary).toContainText("Turi 5 iš 13");
+  await expect(page.locator(".ingredients li").filter({ hasText: "Carrots" })).toHaveClass(/is-have/);
 });
 
 test("Tikras Gemini: AI naudoja Mano virtuvę ir rezultatą galima išsaugoti", async ({ browser }) => {

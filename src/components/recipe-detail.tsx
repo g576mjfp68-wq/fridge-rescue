@@ -14,6 +14,7 @@ import { recordOperations } from "@/lib/dev-mode";
 import { ArrowIcon } from "./icons";
 import { MealPhoto } from "./meal-photo";
 import { AiRecipePanel } from "./ai-recipe-panel";
+import { IngredientsSection } from "./ingredients-section";
 
 export function RecipeDetail({ id }: { id: string }) {
   const params = useSearchParams();
@@ -260,30 +261,7 @@ export function RecipeDetail({ id }: { id: string }) {
             </div>
 
             <div className="recipe-content">
-              <section
-                className="ingredients"
-                aria-labelledby="ingredients-title"
-              >
-                <div className="section-heading">
-                  <h2 id="ingredients-title">Ingredientai</h2>
-                  <span>{meal.ingredients.length}</span>
-                </div>
-
-                {meal.ingredients.length ? (
-                  <ul>
-                    {meal.ingredients.map((ingredient, index) => (
-                      <li key={`${index}-${ingredient.name}`}>
-                        <span>{ingredient.name}</span>
-                        <strong>
-                          {ingredient.measure || "Kiekis nenurodytas"}
-                        </strong>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p>Ingredientai nenurodyti.</p>
-                )}
-              </section>
+              <IngredientsSection meal={meal} />
 
               <section
                 className="instructions"

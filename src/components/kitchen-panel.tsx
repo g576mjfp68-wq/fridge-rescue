@@ -7,6 +7,9 @@ import { MAX_PRODUCT_LENGTH, MAX_PRODUCTS, splitProducts } from "@/lib/ingredien
 import { useAiUser } from "@/lib/supabase/use-ai-user";
 import { searchPath } from "@/lib/types";
 import { openAuth } from "@/lib/ui-store";
+import { notifyKitchenChanged } from "@/lib/kitchen-store";
+import { ProductSuggestions } from "./product-suggestions";
+import { ShoppingList } from "./shopping-list";
 
 export function KitchenPanel({ titleId, onSearch }: { titleId?: string; onSearch?: () => void } = {}) {
   const generated = useId();
@@ -20,6 +23,7 @@ export function KitchenPanel({ titleId, onSearch }: { titleId?: string; onSearch
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const pending = useRef(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   // Products picked for "Ieškoti pagal pasirinktus produktus" (item IDs, max 5).
   const [picked, setPicked] = useState<string[]>([]);
@@ -53,6 +57,7 @@ export function KitchenPanel({ titleId, onSearch }: { titleId?: string; onSearch
       const result = await addKitchenItems(draft, items, userId);
       if (result.added.length) {
         setOwned((current) => ({ userId, items: [...(current.userId === userId ? current.items : []), ...result.added] }));
+        notifyKitchenChanged();
       }
       const parts = [];
       if (result.added.length) parts.push(`Pridėta: ${result.added.map((item) => item.name).join(", ")}.`);
@@ -82,6 +87,7 @@ export function KitchenPanel({ titleId, onSearch }: { titleId?: string; onSearch
     try {
       await removeKitchenItem(item.id, userId);
       setPicked((current) => current.filter((id) => id !== item.id));
+      notifyKitchenChanged();
       setOwned((current) => ({ ...current, items: current.items.filter((entry) => entry.id !== item.id) }));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Produkto pašalinti nepavyko.");
@@ -89,6 +95,17 @@ export function KitchenPanel({ titleId, onSearch }: { titleId?: string; onSearch
       pending.current = false;
       setBusy(false);
     }
+  }
+
+  /** After "Nupirkau" the product is in the kitchen: show it here too. */
+  async function reloadKitchen() {
+    if (!userId) return;
+    try {
+      setOwned({ userId, items: await getKitchenItems(userId) });
+    } catch {
+      // The list refreshes on the next open.
+    }
+    notifyKitchenChanged();
   }
 
   function togglePick(item: KitchenItem) {
@@ -126,6 +143,7 @@ export function KitchenPanel({ titleId, onSearch }: { titleId?: string; onSearch
             <label htmlFor={`${id}-input`}>Pridėk turimus produktus</label>
             <div>
               <input
+                ref={inputRef}
                 id={`${id}-input`}
                 value={draft}
                 onChange={(event) => { setDraft(event.target.value); setError(""); setNotice(""); }}
@@ -139,6 +157,11 @@ export function KitchenPanel({ titleId, onSearch }: { titleId?: string; onSearch
                 {busy ? "Saugoma…" : "Pridėti į virtuvę"}
               </button>
             </div>
+            <ProductSuggestions
+              value={draft}
+              disabled={busy || loading}
+              onPick={(value) => { setDraft(value); setError(""); setNotice(""); inputRef.current?.focus(); }}
+            />
             <p className="kitchen-hint" id={`${id}-hint`}>Kelis produktus atskirk kableliais – kiekvienas bus išsaugotas atskirai.</p>
           </form>
 
@@ -181,6 +204,8 @@ export function KitchenPanel({ titleId, onSearch }: { titleId?: string; onSearch
               <p className="kitchen-hint">Kategorijos ir pasaulio virtuvės filtrai bus išvalyti.</p>
             </>
           )}
+
+          <ShoppingList userId={userId} onBought={reloadKitchen} />
         </>
       )}
     </section>

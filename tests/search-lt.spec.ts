@@ -78,3 +78,24 @@ test("Neatpažintas produktas aiškiai parodomas", async ({ page, request }) => 
   await expect(page.getByRole("heading", { name: "Receptų nerasta" })).toBeVisible();
   await expect(page.getByRole("note")).toContainText("kmynai");
 });
+
+test("Produktų pasiūlymai rašant ir lietuviški ingredientų pavadinimai recepte", async ({ page }) => {
+  await page.goto("/");
+  const field = page.getByLabel("Pagal kokius ingredientus ieškosime?");
+  await field.fill("bulvės, viš");
+  const suggestions = page.getByRole("group", { name: "Produktų pasiūlymai" });
+  await expect(suggestions.getByRole("button")).toHaveText(["vištiena", "vištienos krūtinėlė", "vištienos sparneliai", "vištienos kepenėlės"]);
+  await suggestions.getByRole("button", { name: "vištiena", exact: true }).click();
+  await expect(field).toHaveValue("bulvės, vištiena, ");
+  await expect(field).toBeFocused();
+  await page.getByRole("button", { name: "Ieškoti receptų" }).click();
+  await expect(page).toHaveURL(/q=bulv%C4%97s%2C\+vi%C5%A1tiena/);
+  await expect(page.locator(".recipe-card").first()).toBeVisible();
+
+  await page.goto("/receptai/52940");
+  const chicken = page.locator(".ingredients li").filter({ hasText: /^Chicken/ });
+  await expect(chicken).toContainText("Chicken · vištiena");
+  await expect(page.locator(".ingredients li").filter({ hasText: "Onions" })).toContainText("svogūnai");
+  // Guests are invited to sign in to see what they already have.
+  await expect(page.locator(".kitchen-summary--guest")).toContainText("kad matytum, kuriuos ingredientus jau turi");
+});

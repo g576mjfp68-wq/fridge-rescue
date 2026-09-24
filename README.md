@@ -15,6 +15,10 @@ Aplikacija, kuri padeda nuspręsti, ką gaminti iš turimų produktų. Receptai 
 - **Registruotis ir prisijungti** (el. paštas + slaptažodis), pasirinkti vieną iš 8 avatarų ir vėliau jį pakeisti.
 - **Išsaugoti receptus** (♡) – „Mano receptai“.
 - **„Mano virtuvė“** – savo turimų produktų sąrašas; iš jo galima ieškoti receptų (iki 5 produktų).
+- **„Turi 5 iš 9 ingredientų“** – kortelėse ir recepto puslapyje matyti, kiek ingredientų jau yra „Mano virtuvėje“; recepte turimi pažymėti ✓, trūkstami ✗ (druska, pipirai ir vanduo neskaičiuojami).
+- **Pirkinių sąrašas** – trūkstamus ingredientus vienu mygtuku galima įdėti į sąrašą (lietuviškais pavadinimais), jį nukopijuoti, o „Nupirkau“ perkelia produktą į „Mano virtuvę“.
+- **Produktų pasiūlymai rašant** – paieškoje ir virtuvėje, pvz., „viš“ → „vištiena“.
+- **Lietuviški ingredientų pavadinimai** recepte, pvz., „Chicken · vištiena“ (be AI, pagal žodyną).
 - **AI recepto pritaikymas**: laikas (15/30/60 min.), porcijos (1/2/4), pageidavimas (paprasčiau, pigiau, sveikiau, kuo panašiau į originalą) ir laisvas prašymas. Su „Mano virtuve“ AI parodo, ką jau turi, ko trūksta ir kuo pakeisti.
 - **Išsaugoti AI receptą** – „Mano AI receptai“.
 - **Developer Mode** – paskutinė TheMealDB, Gemini ar Supabase operacija: sistema, endpoint, metodas, tikras HTTP statusas, sėkmė, trukmė.
@@ -38,7 +42,7 @@ flowchart LR
 |---|---|
 | **Naršyklė** | Paieškos forma, filtrai, kortelės, dialogai; prisijungimas ir įrašų išsaugojimas per Supabase su vartotojo sesija (viešas publishable raktas, apsaugo RLS). |
 | **Next.js serveris** (`src/app/api`) | Visos TheMealDB užklausos; lietuviškų produktų susiejimas su TheMealDB ingredientais; filtrų sujungimas pagal receptų ID; Gemini kvietimas su slaptu raktu; vartotojo patikra ir „Mano virtuvės“ produktų gavimas AI užklausai. |
-| **Supabase** | Vartotojai, sesijos, lentelės `saved_recipes`, `ai_recipes`, `kitchen_items` su RLS. |
+| **Supabase** | Vartotojai, sesijos, lentelės `saved_recipes`, `ai_recipes`, `kitchen_items`, `shopping_items` su RLS. |
 
 ### Serverio endpoint'ai
 
@@ -47,6 +51,7 @@ flowchart LR
 | `GET /api/recipes?mode=ingredient\|name&q=…&c=…&a=…` | Paieška pagal ingredientus arba pavadinimą, su kategorijos (`c`) ir virtuvės (`a`) filtrais |
 | `GET /api/recipes/[id]` | Pilnas receptas pagal TheMealDB ID |
 | `GET /api/recipes/random` | Atsitiktinis receptas |
+| `GET /api/recipes/ingredients?ids=…` | Kelių receptų ingredientai (kortelių „Turi X iš Y“), su talpykla serveryje |
 | `GET /api/filters` | Kategorijų ir virtuvių sąrašai (lietuviški pavadinimai, originalios reikšmės) |
 | `POST /api/ai` | Recepto pritaikymas su Gemini; naršyklė siunčia tik recepto ID ir pasirinkimus |
 
@@ -64,6 +69,7 @@ Migracijos – [supabase/migrations](supabase/migrations):
 | `saved_recipes` | `user_id`, `meal_id`, `meal_name`, `meal_image`, `created_at` | savininkas: SELECT, INSERT, DELETE |
 | `ai_recipes` | `user_id`, `original_recipe_id`, `original_recipe_name`, `user_request`, `ai_result`, `time_minutes`, `servings`, `preference`, `created_at` | savininkas: SELECT, INSERT, DELETE |
 | `kitchen_items` | `user_id`, `name`, `created_at` | savininkas: SELECT, INSERT, DELETE |
+| `shopping_items` | `user_id`, `name`, `recipe_name`, `created_at` | savininkas: SELECT, INSERT, DELETE |
 
 Kiekviena politika tikrina `auth.uid() = user_id`. Rolė `anon` teisių neturi, `authenticated` turi tik SELECT, INSERT, DELETE (UPDATE ir TRUNCATE atimti). Avataras saugomas Supabase `user_metadata.avatar`.
 

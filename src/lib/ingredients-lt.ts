@@ -9,8 +9,8 @@ type Entry = { stems?: string[]; phrases?: string[]; en: string[] };
 const ENTRIES: Entry[] = [
   { stems: ["vistien", "vist"], en: ["Chicken", "Chicken Breast", "Chicken Thighs"] },
   { phrases: ["vistienos krutinele", "vistienos krutineles", "krutinele"], en: ["Chicken Breast", "Chicken Breasts"] },
-  { stems: ["sparnel"], en: ["Chicken Wings"] },
-  { stems: ["kepenel"], en: ["Chicken Liver"] },
+  { stems: ["sparnel"], phrases: ["vistienos sparneliai", "vistienos sparnelius"], en: ["Chicken Wings"] },
+  { stems: ["kepenel"], phrases: ["vistienos kepeneles", "vistienos kepenele"], en: ["Chicken Liver"] },
   { stems: ["jautien"], en: ["Beef", "Minced Beef"] },
   { stems: ["kiaulien"], en: ["Pork", "Minced Pork"] },
   { stems: ["erien"], en: ["Lamb", "Lamb Mince"] },
@@ -32,7 +32,7 @@ const ENTRIES: Entry[] = [
   { stems: ["kiaus"], en: ["Eggs", "Egg"] },
   { stems: ["ryz"], en: ["Rice"] },
   { stems: ["makaron"], en: ["Spaghetti", "Penne Rigate", "Macaroni"] },
-  { stems: ["spaget"], en: ["Spaghetti"] },
+  { stems: ["spaget", "spagec"], en: ["Spaghetti"] },
   { stems: ["laksti"], en: ["Noodles", "Egg Noodles"] },
   { stems: ["bulv"], en: ["Potatoes"] },
   { phrases: ["saldziosios bulves", "saldzios bulves", "batatai", "batatas"], en: ["Sweet Potatoes"] },
@@ -90,7 +90,7 @@ const ENTRIES: Entry[] = [
   { stems: ["kriaus"], en: ["Pears"] },
   { stems: ["avokad"], en: ["Avocado"] },
   { stems: ["poras", "porai", "poro", "poru"], en: ["Leek"] },
-  { stems: ["saler"], en: ["Celery"] },
+  { stems: ["saler", "salier"], en: ["Celery"] },
   { stems: ["moliug"], en: ["Pumpkin", "Butternut Squash"] },
   { stems: ["grik"], en: ["Buckwheat"] },
   { phrases: ["manu kruopos", "manai"], en: ["Semolina"] },
@@ -155,3 +155,49 @@ export function splitProducts(query: string): string[] {
 
 export const MAX_PRODUCTS = 5;
 export const MAX_PRODUCT_LENGTH = 40;
+
+/**
+ * Everyday Lithuanian product names for suggestions while typing. Each one is
+ * understood by translateProduct (checked by a test), so a suggestion never
+ * ends up as an "unrecognized" product.
+ */
+export const PRODUCT_SUGGESTIONS = [
+  "vištiena", "vištienos krūtinėlė", "vištienos sparneliai", "vištienos kepenėlės", "jautiena", "kiauliena",
+  "ėriena", "kalakutiena", "antiena", "malta mėsa", "faršas", "šoninė", "kumpis", "dešrelės", "lašiša", "tunas",
+  "menkė", "silkė", "upėtakis", "skumbrė", "krevetės", "kalmarai", "žuvis", "kiaušiniai", "ryžiai", "makaronai",
+  "spagečiai", "lakštiniai", "bulvės", "batatai", "pomidorai", "svogūnai", "česnakai", "morkos", "kopūstai",
+  "lapiniai kopūstai", "grybai", "paprikos", "sūris", "mocarela", "feta", "parmezanas", "varškė", "kreminis sūris",
+  "pienas", "sviestas", "grietinėlė", "grietinė", "jogurtas", "miltai", "cukrus", "duona", "obuoliai", "citrinos",
+  "laimai", "bananai", "špinatai", "brokoliai", "agurkai", "cukinijos", "baklažanai", "burokėliai", "pupelės",
+  "lęšiai", "avinžirniai", "žirneliai", "kukurūzai", "avižos", "medus", "šokoladas", "aliejus", "alyvuogių aliejus",
+  "alyvuogės", "bazilikas", "petražolės", "krapai", "čiobreliai", "raudonėlis", "braškės", "apelsinai", "kriaušės",
+  "avokadai", "porai", "salierai", "moliūgas", "grikiai", "manų kruopos", "graikiniai riešutai", "žemės riešutai",
+  "migdolai", "razinos", "vyšnios", "avietės", "mėlynės", "imbieras", "cinamonas", "actas", "sojų padažas",
+  "kečupas", "majonezas", "garstyčios", "ananasai", "kokosas", "mielės",
+] as const;
+
+/** Up to `limit` suggestions starting with (then containing) the typed text. */
+export function suggestProducts(typed: string, limit = 6, exclude: string[] = []): string[] {
+  const query = normalizeProduct(typed);
+  if (query.length < 2) return [];
+  const skip = new Set(exclude.map(normalizeProduct));
+  const candidates = PRODUCT_SUGGESTIONS.filter((name) => !skip.has(normalizeProduct(name)));
+  const starts = candidates.filter((name) => normalizeProduct(name).startsWith(query));
+  // Then names where a later word starts with the text ("krūtinėlė" → "vištienos krūtinėlė").
+  const contains = candidates.filter((name) => !starts.includes(name) && normalizeProduct(name).split(" ").some((word) => word.startsWith(query)));
+  return [...starts, ...contains].slice(0, limit);
+}
+
+/** TheMealDB ingredient name → Lithuanian name, built from the suggestions (first match wins). */
+const LT_BY_EN = new Map<string, string>();
+for (const name of PRODUCT_SUGGESTIONS) {
+  for (const en of translateProduct(name) ?? []) {
+    const key = en.toLowerCase();
+    if (!LT_BY_EN.has(key)) LT_BY_EN.set(key, name);
+  }
+}
+
+/** "Chicken" → "vištiena"; null when the ingredient is not in the dictionary. */
+export function lithuanianName(ingredient: string): string | null {
+  return LT_BY_EN.get(ingredient.trim().toLowerCase()) ?? null;
+}

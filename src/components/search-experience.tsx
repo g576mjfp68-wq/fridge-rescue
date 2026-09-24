@@ -23,6 +23,9 @@ import {
   type SearchMode,
 } from "@/lib/types";
 import { useFilterOptions } from "@/lib/use-filter-options";
+import { useKitchenProducts } from "@/lib/kitchen-store";
+import { matchKitchen } from "@/lib/kitchen-match";
+import { ProductSuggestions } from "./product-suggestions";
 import { getSavedRecipes, removeSavedRecipe, saveRecipe } from "@/lib/saved-recipes";
 import { useAiUser } from "@/lib/supabase/use-ai-user";
 import { openAuth } from "@/lib/ui-store";
@@ -74,6 +77,25 @@ export function SearchExperience() {
   const [retry, setRetry] = useState(0);
   const [shown, setShown] = useState<{ key: string; count: number }>({ key: "", count: PAGE_SIZE });
   const visibleCount = shown.key === key ? shown.count : PAGE_SIZE;
+  const kitchenProducts = useKitchenProducts();
+  // Ingredient names of shown recipes (null = recipe not found), for "Turi X iš Y".
+  const [ingredientsById, setIngredientsById] = useState<Record<string, string[] | null>>({});
+
+  useEffect(() => {
+    if (!kitchenProducts?.length) return;
+    const ids = result.meals.slice(0, visibleCount).map((meal) => meal.id).filter((id) => !(id in ingredientsById)).slice(0, 24);
+    if (!ids.length) return;
+    const controller = new AbortController();
+    fetchApi<Record<string, string[]>>(`/api/recipes/ingredients?ids=${ids.join(",")}`, controller.signal)
+      .then((response) => {
+        recordOperations(response.operations ?? [response.operation]);
+        setIngredientsById((current) => ({ ...current, ...Object.fromEntries(ids.map((id) => [id, response.data?.[id] ?? null])) }));
+      })
+      .catch(() => {
+        // The badge is a convenience: without it the cards still work.
+      });
+    return () => controller.abort();
+  }, [kitchenProducts, result.meals, visibleCount, ingredientsById]);
 
   const { userId } = useAiUser();
   // Saved meal IDs, tagged with their owner so another account never sees them.
@@ -432,6 +454,14 @@ export function SearchExperience() {
                 </button>
               </div>
 
+              {draftMode === "ingredient" && (
+                <ProductSuggestions
+                  value={draft}
+                  disabled={loading}
+                  onPick={(value) => { setDraft(value); setValidation(""); input.current?.focus(); }}
+                />
+              )}
+
               <fieldset className="filters" disabled={loading}>
                 <legend className="sr-only">Filtrai</legend>
                 <label>
@@ -605,6 +635,7 @@ export function SearchExperience() {
                         <div className="card-body">
                           <span className="recipe-id">RECEPTO ID · {meal.id}</span>
                           <h3>{meal.name}</h3>
+                          <KitchenBadge ingredients={ingredientsById[meal.id]} products={kitchenProducts} />
                           {showMatch && meal.matched && (
                             <ul className="match-tags" aria-label="Atitikimas">
                               {meal.matched.map((product) => <li key={product}>✓ {product}</li>)}
@@ -645,6 +676,15 @@ export function SearchExperience() {
       )}
     </>
   );
+}
+
+/** "Turi 5 iš 9 ingredientų" for signed-in users with products in "Mano virtuvė". */
+function KitchenBadge({ ingredients, products }: { ingredients?: string[] | null; products: string[] | null }) {
+  if (!products?.length || !ingredients) return null;
+  const { have, total } = matchKitchen(ingredients, products);
+  if (!total) return null;
+  const word = total % 10 === 1 && total % 100 !== 11 ? "ingrediento" : "ingredientų";
+  return <p className={`card-kitchen ${have.length === total ? "is-complete" : ""}`}>Turi {have.length} iš {total} {word}</p>;
 }
 
 /** Lithuanian plural: 1 receptas, 2 receptai, 10 receptų, 21 receptas. */
