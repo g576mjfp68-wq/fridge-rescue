@@ -311,7 +311,7 @@ export const INGREDIENT_NAMES: [lt: string, en: string[]][] = [
   ["garstyčios", ["Dijon Mustard", "English Mustard"]],
   ["valgomoji soda", ["Bicarbonate Of Soda"]],
   ["juodosios pupelės", ["Black Beans"]],
-  ["baltosios pupelės", ["Cannellini Beans"]],
+  ["baltosios pupelės", ["Cannellini Beans", "Dried White Beans"]],
   ["pankolis", ["Fennel"]],
   ["rapsų aliejus", ["Rapeseed Oil"]],
   ["kiauliniai taukai", ["Lard"]],
@@ -319,7 +319,7 @@ export const INGREDIENT_NAMES: [lt: string, en: string[]][] = [
   ["auksinis sirupas", ["Golden Syrup"]],
   ["klevų sirupas", ["Maple Syrup"]],
   ["skystas medus", ["Clear Honey"]],
-  ["melasa", ["Black Treacle"]],
+  ["melasa", ["Black Treacle", "Molasses"]],
   ["tamarindų pasta", ["Tamarind Paste"]],
   ["žvaigždanyžis", ["Star Anise"]],
   ["mairūnas", ["Marjoram"]],
@@ -328,6 +328,55 @@ export const INGREDIENT_NAMES: [lt: string, en: string[]][] = [
   ["gervuogės", ["Blackberries"]],
   ["sausainiai", ["Digestive Biscuits"]],
   ["griežčiai", ["Swede"]],
+  ["pistacijos", ["Pistachio"]],
+  ["mėtos", ["Dried Mint"]],
+  ["duonos miltai", ["Strong White Bread Flour"]],
+  ["kanolų aliejus", ["Canola Oil"]],
+  ["krevetės", ["King Prawns", "Tiger Prawns", "Raw Tiger Prawns"]],
+  ["kiaušinių kremas", ["Custard"]],
+  ["mangai", ["Mango"]],
+  ["mielės", ["Instant Yeast"]],
+  ["citrinų žolė", ["Lemongrass", "Lemongrass Stalks"]],
+  ["žemės riešutų aliejus", ["Peanut Oil", "Ground Nut Oil"]],
+  ["vanilinis cukrus", ["Vanilla Sugar"]],
+  ["kiauliena", ["Pork Shoulder", "Pork Chops"]],
+  ["vanilės ankštis", ["Vanilla Pod"]],
+  ["pekano riešutai", ["Pecan Nuts"]],
+  ["filo tešla", ["Filo Pastry"]],
+  ["sūdyta menkė", ["Salt Cod"]],
+  ["balta žuvis", ["White Fish"]],
+  ["salierų šaknis", ["Celeriac"]],
+  ["jautienos taukai", ["Suet"]],
+  ["česnakai", ["Minced Garlic"]],
+  ["jautienos išpjova", ["Beef Fillet"]],
+  ["kmynų sėklos", ["Caraway Seed"]],
+  ["džiovintos slyvos", ["Prunes"]],
+  ["džiovinti vaisiai", ["Dried Fruit"]],
+  ["duona", ["Crusty Bread"]],
+  ["šokolado lašeliai", ["Chocolate Chips"]],
+  ["grietinėlė", ["Single Cream"]],
+  ["rudasis cukrus", ["Dark Brown Soft Sugar"]],
+  ["salierų druska", ["Celery Salt"]],
+  ["pomidorų pasata", ["Passata"]],
+  ["rožių vanduo", ["Rose Water"]],
+  ["bulvės", ["New Potatoes", "Russet Potato"]],
+  ["moliuskai", ["Clams"]],
+  ["midijos", ["Mussels"]],
+  ["šparagai", ["Asparagus"]],
+  ["grybai", ["Shiitake Mushrooms"]],
+  ["Gruyère sūris", ["Gruyère"]],
+  ["svogūnai", ["Chopped Onion"]],
+  ["uogienė", ["Jam"]],
+  ["kvapieji pipirai", ["Ground Allspice"]],
+  ["universalūs prieskoniai", ["All-purpose Seasoning"]],
+  ["rūkyta juodadėmė menkė", ["Smoked Haddock"]],
+  ["šalavijas", ["Sage"]],
+  ["lęšiai", ["Brown Lentils"]],
+  ["žemės riešutai", ["Roasted Peanut"]],
+  ["galangalas", ["Galangal"]],
+  ["pankolio sėklos", ["Fennel Seeds"]],
+  ["raudonųjų pipirų pasta", ["Red Pepper Paste"]],
+  ["kukurūzų miltai", ["Cornmeal"]],
 ];
 
 // New Lithuanian names become exact phrases in the dictionary.
@@ -340,17 +389,24 @@ for (const [lt, en] of INGREDIENT_NAMES) {
  * ("Coconut Milk" → "kokosų pienas"), then the everyday suggestions.
  */
 const LT_BY_EN = new Map<string, string>();
+
+/** "Carrots" and "Carrot", "Tomatoes" and "Tomato" share one key. */
+function englishKey(name: string): string {
+  return normalizeProduct(name).split(/[^a-z]+/).filter(Boolean)
+    .map((word) => word.replace(/(oes|ies|es|s)$/, (end) => (end === "ies" ? "y" : end === "oes" ? "o" : "")))
+    .join(" ");
+}
+
 for (const [lt, en] of INGREDIENT_NAMES) {
-  for (const name of en) if (!LT_BY_EN.has(name.toLowerCase())) LT_BY_EN.set(name.toLowerCase(), lt);
+  for (const name of en) if (!LT_BY_EN.has(englishKey(name))) LT_BY_EN.set(englishKey(name), lt);
 }
 for (const name of PRODUCT_SUGGESTIONS) {
   for (const en of translateProduct(name) ?? []) {
-    const key = en.toLowerCase();
-    if (!LT_BY_EN.has(key)) LT_BY_EN.set(key, name);
+    if (!LT_BY_EN.has(englishKey(en))) LT_BY_EN.set(englishKey(en), name);
   }
 }
 
 /** "Chicken" → "vištiena"; null when the ingredient is not in the dictionary. */
 export function lithuanianName(ingredient: string): string | null {
-  return LT_BY_EN.get(ingredient.trim().toLowerCase()) ?? null;
+  return LT_BY_EN.get(englishKey(ingredient)) ?? null;
 }

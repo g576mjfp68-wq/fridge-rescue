@@ -18,7 +18,7 @@ Aplikacija, kuri padeda nuspręsti, ką gaminti iš turimų produktų. Receptai 
 - **„Turi 5 iš 9 ingredientų“** – kortelėse ir recepto puslapyje matyti, kiek ingredientų jau yra „Mano virtuvėje“; recepte turimi pažymėti ✓, trūkstami ✗ (druska, pipirai ir vanduo neskaičiuojami).
 - **Pirkinių sąrašas** – trūkstamus ingredientus vienu mygtuku galima įdėti į sąrašą (lietuviškais pavadinimais), jį nukopijuoti, o „Nupirkau“ perkelia produktą į „Mano virtuvę“.
 - **Produktų pasiūlymai rašant** – paieškoje ir virtuvėje, pvz., „viš“ → „vištiena“.
-- **Lietuviški ingredientų pavadinimai** recepte: lietuviškas pavadinimas pirmas, originalus po juo („vištiena / Chicken“). Be AI, pagal žodyną, kuris apima ~87 % visų TheMealDB receptų ingredientų pasikartojimų.
+- **Lietuviški ingredientų pavadinimai** recepte: lietuviškas pavadinimas pirmas, originalus po juo („vištiena / Chicken“). Be AI, pagal žodyną, kuris apima ~90 % visų TheMealDB receptų ingredientų pasikartojimų (vienaskaita ir daugiskaita – carrot/carrots – atpažįstamos vienodai).
 - **AI recepto pritaikymas**: laikas (15/30/60 min.), porcijos (1/2/4), pageidavimas (paprasčiau, pigiau, sveikiau, kuo panašiau į originalą) ir laisvas prašymas. Su „Mano virtuve“ AI parodo, ką jau turi, ko trūksta ir kuo pakeisti.
 - **Išsaugoti AI receptą** – „Mano AI receptai“.
 - **Developer Mode** – paskutinė TheMealDB, Gemini ar Supabase operacija: sistema, endpoint, metodas, tikras HTTP statusas, sėkmė, trukmė.

@@ -17,6 +17,11 @@ test("Lietuviški ingredientų pavadinimai iš žodyno", () => {
   expect(lithuanianName("potatoes")).toBe("bulvės");
   expect(lithuanianName("Garlic Clove")).toBe("česnakai");
   expect(lithuanianName("Onions")).toBe("svogūnai");
+  // Singular and plural spellings both work.
+  expect(lithuanianName("Carrot")).toBe("morkos");
+  expect(lithuanianName("Carrots")).toBe("morkos");
+  expect(lithuanianName("Potato")).toBe("bulvės");
+  expect(lithuanianName("Gruyère")).toBe("Gruyère sūris");
 });
 
 test("Mano virtuvė ir recepto ingredientai: turi / trūksta", () => {
