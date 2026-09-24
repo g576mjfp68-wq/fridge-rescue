@@ -101,8 +101,9 @@ Klaidų pranešimai: netinkamas slaptažodis (`weak_password`), vartotojas jau e
 
 ## 8–9. Supabase ir RLS
 
-- **Supabase** – duomenų bazė ir autentifikacija: vartotojai, jų išsaugoti receptai (`saved_recipes`), AI receptai (`ai_recipes`) ir „Mano virtuvė“ (`kitchen_items`).
+- **Supabase** – duomenų bazė ir autentifikacija: vartotojai, jų išsaugoti receptai (`saved_recipes`), AI receptai (`ai_recipes`), „Mano virtuvė“ (`kitchen_items`) ir pirkinių sąrašas (`shopping_items`). Pasirinktas avataras saugomas vartotojo `user_metadata`.
 - **RLS (Row Level Security)** – duomenų bazės taisyklės kiekvienai eilutei. Mūsų taisyklė paprasta: **matyti, įrašyti ir trinti galima tik eilutes, kurių `user_id` sutampa su prisijungusio vartotojo ID** (`auth.uid() = user_id`).
+- Visoms keturioms lentelėms taikomos tos pačios trys taisyklės (SELECT, INSERT, DELETE tik savo eilutėms). Rolė `anon` teisių neturi, o `authenticated` turi tik SELECT, INSERT ir DELETE: UPDATE ir TRUNCATE atimti, nes TRUNCATE apeitų RLS.
 - **Kodėl du vartotojai mato skirtingus „Mano receptai“?** Ne todėl, kad puslapis slepia – pati duomenų bazė kitam vartotojui tų eilučių **negrąžina**. Tai patikrinta testais ir tiesioginėmis užklausomis: B negauna A įrašų, negali jų ištrinti (0 eilučių), o bandymas įrašyti su A ID atmetamas (`403`). Neprisijungęs (`anon`) negauna nieko.
 
 ## 10–12. API raktas ir kodėl Gemini raktas serveryje
@@ -267,13 +268,35 @@ https://fridge-mu-green.vercel.app
 - [ ] susikurti kitą paskyrą ir prisijungti;
 - [ ] „Mano receptai“ – **nėra** A receptų;
 - [ ] „Mano AI receptai“ – **nėra** A AI receptų;
-- [ ] „Mano virtuvė“ – **nėra** A produktų;
+- [ ] „Mano virtuvė“ ir pirkinių sąrašas – **nėra** A produktų;
 - [ ] sukurti keletą savo įrašų ir įsitikinti, kad A jų nemato.
+
+## ⭐ Papildoma užduotis – „Mano virtuvė“
+
+- **Kas tai:** prisijungusio vartotojo turimų produktų sąrašas, saugomas Supabase lentelėje `kitchen_items` (vienas produktas – viena eilutė). Kelis produktus galima įvesti per kablelį („kiaušiniai, pomidorai, sūris“): jie išskaidomi, dublikatai praleidžiami, kiekvienas išsaugomas atskirai ir turi savo „×“.
+- **Atskyrimas:** kiekviena eilutė turi `user_id`, RLS leidžia matyti ir keisti tik savo produktus. Patikrinta su dviem vartotojais: B nemato A produktų nei puslapyje, nei tiesiogine užklausa į duomenų bazę.
+- **Ryšys su AI:** pažymėjus „Naudoti mano „Mano virtuvė“ produktus“, **serveris** pats patikrina vartotoją, iš Supabase pasiima tik jo produktus ir perduoda Gemini kartu su recepto ingredientais. Gemini grąžina JSON: ką turi (`have`), ko trūksta ir kuo pakeisti (`missing` su `substitutes`), pritaikytą receptą (`recipe`). Naršyklė produktų sąrašo į AI užklausą nesiunčia, todėl negali „pakišti“ svetimo sąrašo.
+
+## Papildomos funkcijos (virš užduoties)
+
+| Funkcija | Kaip veikia | Kur kodas |
+|---|---|---|
+| **Paieška lietuviškai, keli produktai** | Žodynas verčia „vištiena, bulvės“ į tikslius TheMealDB pavadinimus. Nemokamas raktas neleidžia ieškoti keliais ingredientais vienu metu, todėl serveris daro atskiras užklausas ir sulygina receptus pagal ID. Pirmiausia rodomi receptai su visais produktais, jei tokių nėra – daliniai („Atitinka 2 iš 3“). | `src/lib/ingredients-lt.ts`, `src/lib/ingredient-search.ts` |
+| **Filtrai: kategorija ir pasaulio virtuvė** | Griežti filtrai: API jų kartu nepritaiko, todėl serveris sujungia rezultatus pagal ID. Virtuvių sąrašas imamas iš pačių receptų, nes `list.php` pavadinimai („French“) nesutampa su filtro reikšmėmis („France“). | `src/lib/meal-filters.ts`, `/api/filters` |
+| **„Nustebink mane“** | Atsitiktinis receptas iš `random.php`; filtrai netaikomi. | `/api/recipes/random` |
+| **Avatarai** | 8 paveikslėliai; pasirinkimas saugomas Supabase `user_metadata`, todėl matomas visuose įrenginiuose. | `src/lib/avatars.ts` |
+| **„Turi 5 iš 9 ingredientų“** | Kortelėse ir recepte palyginami recepto ingredientai su „Mano virtuve“; recepte ✓ turi, ✗ trūksta. Druska, pipirai ir vanduo neskaičiuojami. Kortelių ingredientus serveris gauna per `lookup.php` ir 6 val. laiko talpykloje. | `src/lib/kitchen-match.ts`, `/api/recipes/ingredients` |
+| **Pirkinių sąrašas** | Trūkstamus ingredientus vienu mygtuku galima įdėti į `shopping_items` (lietuviškais pavadinimais), nukopijuoti, o „Nupirkau“ perkelia produktą į „Mano virtuvę“. RLS kaip ir kitose lentelėse. | `src/lib/shopping.ts`, `src/components/shopping-list.tsx` |
+| **Pasiūlymai rašant** | „viš“ → „vištiena“; siūlomi tik žodžiai, kuriuos žodynas tikrai atpažįsta. | `src/components/product-suggestions.tsx` |
+| **Lietuviški ingredientų pavadinimai** | Be AI, pagal žodyną: „vištiena / Chicken“. Apima ~90 % visų receptų ingredientų; vienaskaita ir daugiskaita atpažįstamos vienodai. Testas tikrina, kad kiekvienas pavadinimas veikia abiem kryptimis. | `src/lib/ingredients-lt.ts` |
+| **12 receptų ir „Rodyti daugiau“, „Išvalyti paiešką“** | Patogesnis ilgų sąrašų naršymas; paieška ir filtrai išlieka grįžus iš recepto (jie yra URL). | `src/components/search-experience.tsx` |
+
+**Kodėl daug kas vyksta serveryje?** Serveris sujungia kelias TheMealDB užklausas, laiko talpykloje dažnus duomenis ir saugo Gemini raktą. Naršyklė gauna tik galutinį, patikrintą rezultatą.
 
 ## Trumpai: kuo skiriasi trys paslaugos
 
 | Paslauga | Paskirtis | Kur kviečiama |
 |---|---|---|
 | **TheMealDB** | Receptų duomenys (paieška, pilnas receptas, kategorijos, atsitiktinis) | Mūsų serveris |
-| **Supabase** | Vartotojai, sesijos ir jų asmeniniai duomenys su RLS | Naršyklė (su vartotojo sesija) ir serveris (AI virtuvei) |
+| **Supabase** | Vartotojai, sesijos ir jų asmeniniai duomenys (išsaugoti receptai, AI receptai, virtuvė, pirkiniai, avataras) su RLS | Naršyklė (su vartotojo sesija) ir serveris (AI virtuvei) |
 | **Gemini** | Dirbtinis intelektas: pritaiko receptą situacijai | Tik mūsų serveris, su slaptu raktu |
