@@ -269,7 +269,7 @@ test("Virtuvės atitikimas kortelėse ir recepte, pirkinių sąrašas ir „Nupi
   await page.goto("/receptai/52940");
   const summary = page.locator(".kitchen-summary");
   await expect(summary).toContainText("Turi 4 iš 13");
-  await expect(page.locator(".ingredients li").filter({ hasText: "Chicken · vištiena" })).toHaveClass(/is-have/);
+  await expect(page.locator(".ingredients li").filter({ hasText: "Chicken" })).toHaveClass(/is-have/);
   await expect(page.locator(".ingredients li").filter({ hasText: "Carrots" })).toHaveClass(/is-missing/);
 
   await summary.getByRole("button", { name: "Įdėti trūkstamus (9) į pirkinių sąrašą" }).click();
@@ -279,7 +279,7 @@ test("Virtuvės atitikimas kortelėse ir recepte, pirkinių sąrašas ir „Nupi
 
   // Real database: 9 rows for A, nothing visible or insertable for B (RLS).
   const rows = await (await rest("shopping_items?select=name", a.access)).json();
-  expect(rows.map((row: { name: string }) => row.name)).toEqual(expect.arrayContaining(["morkos", "paprikos", "sojų padažas", "Allspice"]));
+  expect(rows.map((row: { name: string }) => row.name)).toEqual(expect.arrayContaining(["morkos", "paprikos", "sojų padažas", "kvapieji pipirai", "kukurūzų krakmolas", "kokosų pienas", "augalinis aliejus"]));
   expect(rows).toHaveLength(9);
   expect(await (await rest("shopping_items?select=id", b.access)).json()).toEqual([]);
   expect((await rest("shopping_items", b.access, { method: "POST", body: JSON.stringify({ user_id: a.id, name: "svetimas" }) })).status).toBe(403);

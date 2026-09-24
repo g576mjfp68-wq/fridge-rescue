@@ -92,8 +92,10 @@ export function IngredientsSection({ meal }: { meal: Meal }) {
                       <span className="sr-only">{state === "have" ? "Turi: " : "Trūksta: "}</span>
                     </>
                   )}
-                  {ingredient.name}
-                  {lt && <small lang="lt"> · {lt}</small>}
+                  {/* Lithuanian first where the dictionary knows it; the original name stays below. */}
+                  <span className="ingredient-name">
+                    {lt ? <><span lang="lt">{lt}</span><small lang="en">{ingredient.name}</small></> : ingredient.name}
+                  </span>
                 </span>
                 <strong>{ingredient.measure || "Kiekis nenurodytas"}</strong>
               </li>

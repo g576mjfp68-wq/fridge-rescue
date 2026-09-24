@@ -93,9 +93,11 @@ test("Produktų pasiūlymai rašant ir lietuviški ingredientų pavadinimai rece
   await expect(page.locator(".recipe-card").first()).toBeVisible();
 
   await page.goto("/receptai/52940");
-  const chicken = page.locator(".ingredients li").filter({ hasText: /^Chicken/ });
-  await expect(chicken).toContainText("Chicken · vištiena");
-  await expect(page.locator(".ingredients li").filter({ hasText: "Onions" })).toContainText("svogūnai");
+  // Lithuanian name first, the original English name below it.
+  const chicken = page.locator(".ingredients li").filter({ hasText: "Chicken" });
+  await expect(chicken.locator('.ingredient-name [lang="lt"]')).toHaveText("vištiena");
+  await expect(chicken.locator('.ingredient-name [lang="en"]')).toHaveText("Chicken");
+  await expect(page.locator(".ingredients li").filter({ hasText: "Allspice" }).locator('[lang="lt"]')).toHaveText("kvapieji pipirai");
   // Guests are invited to sign in to see what they already have.
   await expect(page.locator(".kitchen-summary--guest")).toContainText("kad matytum, kuriuos ingredientus jau turi");
 });

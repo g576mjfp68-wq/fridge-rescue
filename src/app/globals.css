@@ -397,7 +397,11 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 400; letter-spacing: -.02em
 .kitchen-summary p { margin: 0; }
 .kitchen-summary strong { color: var(--forest); }
 .kitchen-summary--guest { display: block; color: var(--muted); font-size: 14px; }
-.ingredients li small { color: var(--muted); font-size: 14px; }
+.ingredients li > span { display: inline-flex; align-items: flex-start; }
+.ingredient-name { display: inline-flex; flex-direction: column; line-height: 1.3; }
+.ingredient-name span::first-letter { text-transform: uppercase; }
+.ingredients li small { color: var(--muted); font-size: 13px; }
+.ingredient-status { margin-top: 1px; }
 .ingredient-status { display: inline-grid; place-items: center; width: 20px; height: 20px; margin-right: 8px; border-radius: 50%; font-size: 12px; }
 .ingredients li.is-have .ingredient-status { background: var(--moss-soft); color: var(--forest); }
 .ingredients li.is-missing .ingredient-status { background: var(--terra-soft); color: var(--terra); }

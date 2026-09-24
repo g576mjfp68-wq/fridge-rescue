@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { lithuanianName, PRODUCT_SUGGESTIONS, suggestProducts, translateProduct } from "../src/lib/ingredients-lt";
-import { matchKitchen } from "../src/lib/kitchen-match";
+import { INGREDIENT_NAMES, lithuanianName, PRODUCT_SUGGESTIONS, suggestProducts, translateProduct } from "../src/lib/ingredients-lt";
+import { hasIngredient, kitchenIngredientNames, matchKitchen } from "../src/lib/kitchen-match";
 
 // Pure logic: no network, no database.
 test("Pasiūlymai: kiekvienas atpažįstamas, rodomi pagal žodžio pradžią", () => {
@@ -16,7 +16,7 @@ test("Lietuviški ingredientų pavadinimai iš žodyno", () => {
   expect(lithuanianName("Chicken")).toBe("vištiena");
   expect(lithuanianName("potatoes")).toBe("bulvės");
   expect(lithuanianName("Garlic Clove")).toBe("česnakai");
-  expect(lithuanianName("Allspice")).toBeNull();
+  expect(lithuanianName("Onions")).toBe("svogūnai");
 });
 
 test("Mano virtuvė ir recepto ingredientai: turi / trūksta", () => {
@@ -31,4 +31,22 @@ test("Mano virtuvė ir recepto ingredientai: turi / trūksta", () => {
   expect(plural.have).toEqual(["Chicken Breasts", "Potatoes", "Cheddar Cheese"]);
   expect(plural.missing).toEqual(["Eggs"]);
   expect(matchKitchen(["Chicken"], []).have).toEqual([]);
+});
+
+test("Kiekvienas lietuviškas ingrediento pavadinimas veikia abiem kryptimis", () => {
+  for (const [lt, en] of INGREDIENT_NAMES) {
+    // Recognised when typed or moved to the kitchen…
+    expect(translateProduct(lt), lt).not.toBeNull();
+    for (const name of en) {
+      // …shown for the recipe ingredient…
+      expect(lithuanianName(name), name).not.toBeNull();
+      // …and the kitchen product covers that ingredient (e.g. after "Nupirkau").
+      expect(hasIngredient(name, kitchenIngredientNames([lithuanianName(name)!])), `${name} ← ${lithuanianName(name)}`).toBe(true);
+    }
+  }
+  expect(lithuanianName("Allspice")).toBe("kvapieji pipirai");
+  expect(lithuanianName("Coconut Milk")).toBe("kokosų pienas");
+  // Existing search words keep their meaning.
+  expect(translateProduct("cukrus")).toEqual(["Sugar"]);
+  expect(translateProduct("kmynai")).toBeNull();
 });
